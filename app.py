@@ -10,7 +10,7 @@ with st.sidebar:
     **👥 Integrantes:**
     - Oziel Hernández
     - Daniela Borzani
-    - Santiago Cruz
-    - Ximena Paredes
+    - 
+    - 
     """)
     st.markdown("---")
