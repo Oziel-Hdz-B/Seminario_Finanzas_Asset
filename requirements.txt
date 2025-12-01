@@ -1,4 +1,4 @@
-#Aquí van las paqueterías para el proyecto
+streamlit
 pandas
 numpy
 matplotlib.pyplot
