@@ -1,1 +1,6 @@
 #Aquí van las paqueterías para el proyecto
+pandas
+numpy
+matplotlib.pyplot
+plotly.express
+datetime
