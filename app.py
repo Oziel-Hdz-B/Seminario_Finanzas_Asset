@@ -7,6 +7,7 @@ from datetime import datetime
 import yfinance as yf
 import os
 from metricas_funciones import *
+from portafolios_markowitz import *
 
 # Hacemo la descarga de los csv de los activos que tenemos
 
