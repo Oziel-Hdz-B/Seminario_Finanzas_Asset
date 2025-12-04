@@ -19,14 +19,15 @@ with st.sidebar:
     st.markdown('<div style="margin-top: 20px;"></div>', unsafe_allow_html=True)
     st.markdown("""
 
-    **Integrantes:**
+    *Integrantes:*
     - Flores Moreno Alan Alberto
     - Gonzales Carapia Ricardo 
     - Hernández Banda Oziel
     - Jimenez Borzani Daniela Naomi
     """)
 
-    st.header("Escoge los ativos")
+    # Layouts
+    st.header("Escoge los activos", divider="red")
 
     ## Selectbox
     selectbox_1 = st.selectbox(
@@ -39,7 +40,7 @@ with st.sidebar:
         ## Multiselect
         st.subheader("Activos por Regiones")
         tickers = st.multiselect(
-            label="Multiselect 1",
+            label="Lista de activos",
             options=[
             'SPLG',  # 
             'EWC',  # 
@@ -53,7 +54,7 @@ with st.sidebar:
         ## Multiselect
         st.subheader("Activos por Sectores")
         tickers = st.multiselect(
-            label="Multiselect 2",
+            label="Lista de activos",
             options=[
             'XLK',  # Tecnología
             'XLF',  # Finanzas
@@ -72,21 +73,22 @@ with st.sidebar:
 
     st.markdown("---")
     
-    st.header("Escoge las fechas de inicio y fin para los datos")
+    # Layouts
+    st.header("Escoge las fechas de inicio y fin para los datos", divider="red")
     ## Date input
     st.subheader("Fechas")
-    fecha_hoy = datetime.today()
+    # fecha_hoy = datetime.today()
     fecha_min = datetime(year=2010, month=1, day=1)
     fecha_max = datetime(year=2025, month=12, day=2)
     fecha_inicio = st.date_input(
         "Input Fecha de incio",
-        fecha_hoy,
+        datetime(year=2025, month=12, day=2),
         min_value=fecha_min,
         max_value=fecha_max
     )
     fecha_fin = st.date_input(
         "Input Fecha de fin",
-        fecha_hoy,
+        datetime(year=2025, month=12, day=2),
         min_value=fecha_min,
         max_value=fecha_max
     )
@@ -95,35 +97,14 @@ with st.sidebar:
 
     st.markdown("---")
 
-"""
-# Descarga de datos para todos los tickers
-@st.cache_data
-def obtener_datos (stocks):
-    df = yf.download(stocks, 
-                     start=datetime(year = 2010, 
-                                  month = 1, 
-                                  day = 1),
-                     end=datetime(year = datetime.today().year, 
-                                  month =datetime.today().month, 
-                                  day = datetime.today().day ))
-    
-df_regiones = obtener_datos(['SPLG','EWC','IEUR','EEM','EWJ'])
-df_sectores = obtener_datos(['XLK','XLF','XLV','XLY','XLE','XLI','XLC','XLB','XLU','XLRE'])
-
-st.write(pd.DataFrame(df_sectores))
-st.write(pd.DataFrame(df_regiones))
-
-df_sectores = pd.DataFrame(df_sectores).dropna(how="all",axis=1).dropna(how="any")
-st.write(df_sectores)
-"""
-
 # #############################################################################
 # ##################################
 # 1RA PARTE, SELECCIONAR EL TIPO DE PORTAFOLIO
 # ##################################
 # #############################################################################
 
-st.header("Escoge el tipo de portafolio que gustes")
+# Layouts
+st.header("Escoge el tipo de portafolio que gustes", divider="red")
 
 ## Multiselect
 portafolio_tipo = st.selectbox(
@@ -157,18 +138,135 @@ if str(portafolio_tipo) == 'Portafolio arbitrario':
         })
     tabla5 = st.data_editor(df_port, disabled=["Tickers"])
 
+    if tabla5["Pesos"].sum()==1.0 and (tabla5["Pesos"].between(0,1).all()):
+        st.write("La suma de los pesos suma 1, el 100%")
+        # Layouts 
+        st.header("Escoge la tasa libre de riesgo", divider="red")
+        ## Input Numerico
+        tasa_ib_r = st.number_input(
+            "Tasa libre de Riesgo",
+            min_value = 0.0,
+            max_value = 1.0,
+            value=0.2,
+            step=0.01
+        )
+        st.header("Escoge el nivel de confianza para métricas de Riesgo", divider="red")
+        ## Input Numerico
+        nivel_conf = st.number_input(
+            "Tasa libre de Riesgo",
+            min_value = 0.9,
+            max_value = 0.99,
+            value=0.95,
+            step=0.01
+        )
+
+    else:
+        st.write("La suma de los pesos debe sumar 1.0 y cada pesos deben estar entre 0 y 1")
+        if tabla5["Pesos"].sum()<1.0:
+            st.write("Te falta {} para sumar 1".format(1-tabla5["Pesos"].sum()))
+        else:
+            st.write("Los pesos exceden la suma de 1")
+
 elif str(portafolio_tipo) == 'Portafolio optimizado - Mínima Varianza':
     # ###########################################################################
     # SEGUNDO CASO
     # ###########################################################################
-    pass
+
+    st.header("Escoge la tasa libre de riesgo", divider="red")
+    ## Input Numerico
+    tasa_ib_r = st.number_input(
+        "Tasa libre de Riesgo",
+        min_value = 0.0,
+        max_value = 1.0,
+        value=0.2,
+        step=0.01
+    )
+    st.header("Escoge el nivel de confianza para métricas de Riesgo", divider="red")
+    ## Input Numerico
+    nivel_conf = st.number_input(
+        "Tasa libre de Riesgo",
+        min_value = 0.9,
+        max_value = 0.99,
+        value=0.95,
+        step=0.01
+    )
 elif str(portafolio_tipo) == 'Portafolio optimizado - Máximo Sharpe':
     # ###########################################################################
     # TERCER CASO
     # ###########################################################################
-    pass
+
+    st.header("Escoge la tasa libre de riesgo", divider="red")
+    ## Input Numerico
+    tasa_ib_r = st.number_input(
+        "Tasa libre de Riesgo",
+        min_value = 0.0,
+        max_value = 1.0,
+        value=0.2,
+        step=0.01
+    )
+    st.header("Escoge el nivel de confianza para métricas de Riesgo", divider="red")
+    ## Input Numerico
+    nivel_conf = st.number_input(
+        "Tasa libre de Riesgo",
+        min_value = 0.9,
+        max_value = 0.99,
+        value=0.95,
+        step=0.01
+    )
+
+elif str(portafolio_tipo) == 'Portafolio optimizado - Rendimiento Fijo':
+    # ###########################################################################
+    # QUINTO CASO
+    # ###########################################################################
+    
+    st.header("Escoge la tasa libre de riesgo", divider="red")
+    ## Input Numerico
+    tasa_ib_r = st.number_input(
+        "Tasa libre de Riesgo",
+        min_value = 0.0,
+        max_value = 1.0,
+        value=0.2,
+        step=0.01
+    )
+    st.header("Escoge el nivel de confianza para métricas de Riesgo", divider="red")
+    ## Input Numerico
+    nivel_conf = st.number_input(
+        "Tasa libre de Riesgo",
+        min_value = 0.9,
+        max_value = 0.99,
+        value=0.95,
+        step=0.01
+    )
+    st.header("Escoge el rendimiento objetivo para este portafolio", divider="red")
+    ## Input Numerico
+    rend_objetivo = st.number_input(
+        "Tasa libre de Riesgo",
+        min_value = 0.03,
+        max_value = 0.5,
+        value=0.2,
+        step=0.01
+    )
+    
 elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
     # ###########################################################################
     # QUINTO CASO
     # ###########################################################################
-    pass
+    
+    st.header("Escoge la tasa libre de riesgo", divider="red")
+    ## Input Numerico
+    tasa_ib_r = st.number_input(
+        "Tasa libre de Riesgo",
+        min_value = 0.0,
+        max_value = 1.0,
+        value=0.2,
+        step=0.01
+    )
+    st.header("Escoge el nivel de confianza para métricas de Riesgo", divider="red")
+    ## Input Numerico
+    nivel_conf = st.number_input(
+        "Tasa libre de Riesgo",
+        min_value = 0.9,
+        max_value = 0.99,
+        value=0.95,
+        step=0.01
+    )
