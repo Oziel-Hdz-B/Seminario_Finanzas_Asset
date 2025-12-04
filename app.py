@@ -6,6 +6,25 @@ import plotly.express as px
 from datetime import datetime
 import yfinance as yf
 
+###########################################################################
+# Parámetros a cosiderar del código
+# tickers <- contiene el nombre de los activos dados por el usuario
+# fecha_inicio <- es la fecha de inicio input, para filtrar datos
+# fecha_fin <- es la fecha de inicio input, para filtrar datos
+#
+# SOBRE LOS PARÁMETROS ANTERIORES SE HACE EL FILTRADO DEL DATAFRAME GENERAL
+#
+# tabla5["Pesos"] <- Contiene los pesos del **PORTAFOLIO ARBITRARIO** donde el usuario escoge los pesos
+#                    Ese sería el vector de pesos
+#                    Los rangos: 0.0 - 1.0
+# tasa_ib_r <- Es la tasa libre de riesgo, considerese anual, las func. la reciben así
+#                    Rango: 0.0 - 1.0
+# nivel_conf <- Nivel de confianza para el VaR y el CVaR, así lo reciben las funciones
+#                    Rango: 0.9 - 0.99
+# rend_objetivo <- Rendimineto objetivo solo para el **PORTAFOLIO CON REND. OBJETIVO**
+#                    Rango: 0.03 - 0.5
+###########################################################################
+
 # #############################################################################
 # ##################################
 # CERO PARTE, SELECCIONAR ACTIVOS, FECHAS, Y MOSTRAR CARÁTULA
