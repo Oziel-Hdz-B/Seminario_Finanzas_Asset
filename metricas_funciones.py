@@ -36,7 +36,7 @@ def sharpe_ratio(r, rf = 0.045, periods = 252):
   # r = rendimientos diarios del portafolio
   # rf = Tasa libre de riesgo anual
 
-  rf_rate = (1 + rf)**(1/252) - 1
+  rf_rate = (1 + rf)**(1/periods) - 1
   excess = r - rf_rate             # retornos en exceso = R_p - R_f
   mean_excess = np.mean(excess)    # E[R_p - R_f]
   std_excess = np.std(excess)      # desviación estándar σ(R_p - R_f)
@@ -50,7 +50,7 @@ def sortino_ratio(r, rf = 0.045, target = 0, periods = 252):
   # target = Rendimiento Objetivo
   # periods = Número de días a considerar por año
 
-  rf_rate = (1 + rf)**(1/252) - 1
+  rf_rate = (1 + rf)**(1/periods) - 1
   excess = r - rf_rate                  # retornos sobre libre de riesgo
   downside = r[r < target] - target     # solo pérdidas respecto al objetivo
   downside_std = np.sqrt(np.mean(downside**2))  # desviación a la baja σ_d
@@ -58,42 +58,48 @@ def sortino_ratio(r, rf = 0.045, target = 0, periods = 252):
   sortino = np.sqrt(periods) * mean_excess / downside_std
   return sortino
 
-# Treynor Ratio y Beta
-def treynor_ratio(r, benchmark, rf_rate= 0.045, periods=252):
-    # r: retornos del portafolio
-    # benchmark: retornos del índice de referencia (p.ej. S&P500)
-    # rf_rate: tasa libre de riesgo
-    # periods = Número de días a considerar por año
+#Treynor Ratio
+def treynor_ratio(r, benchmark, index, rf_rate= 0.045, periods=252):
+  """
+  r: retornos del portafolio
+  benchmark: retornos del índice de referencia (p.ej. S&P500)
+  rf_rate: tasa libre de riesgo
+  index: índice con las fechas del DataFrame de retornos del portafolio, se
+  puede calcular como:
+  index_retornos = retornos.index
+  """
+  # Convertimos los retornos del portafolio a una serie de pandas para alinearlo con el índice del benchmark
+  r_p_series = pd.Series(r, index, name='portfolio_returns')
 
-    # Convertimos los retornos del portafolio a una serie de pandas para alinearlo con el índice del benchmark
-    r_p_series = pd.Series(r, index=retornos.index, name='portfolio_returns')
+  # Convertimos la tasa libre de riesgo anualizada a diaria
+  rf_diario = (1 + rf_rate)**(1/periods) - 1
 
-    # Convertimos la tasa libre de riesgo anualizada a diaria
-    rf_diario = (1 + rf_rate)**(1/252) - 1
+  # Alineamos los retornos del benchmark y el portafolio basados en su índice común
+  # benchmark.iloc[:, 0] asegura que estamos trabajando con la serie de los retornos del benchmark
+  aligned_data = pd.DataFrame({'portfolio': r_p_series, 'benchmark': benchmark.iloc[:, 0]})
+  aligned_data.dropna(inplace=True) #Arroja cualquier renglón donde no haya datos tanto del portafolio o del benchmark
 
-    # Alineamos los retornos del benchmark y el portafolio basados en su índice común
-    # benchmark.iloc[:, 0] asegura que estamos trabajando con la serie de los retornos del benchmark
-    aligned_data = pd.DataFrame({'portfolio': r_p_series, 'benchmark': benchmark.iloc[:, 0]})
-    aligned_data.dropna(inplace=True) #Arroja cualquier renglón donde no haya datos tanto del portafolio o del benchmark
+  exceso_p = aligned_data['portfolio'] - rf_diario
+  exceso_b = aligned_data['benchmark'] - rf_diario
+  # Calcula la beta usando  los excesos alineados de los retornos
+  # np.cov espera matrices 1-D que representan las variables si quieres su covarianza
+  beta = np.cov(exceso_p, exceso_b)[0,1] / np.var(exceso_b)
 
-    exceso_p = aligned_data['portfolio'] - rf_diario
-    exceso_b = aligned_data['benchmark'] - rf_diario
-    # Calcula la beta usando  los excesos alineados de los retornos
-    # np.cov espera matrices 1-D que representan las variables si quieres su covarianza
-    beta = np.cov(exceso_p, exceso_b)[0,1] / np.var(exceso_b)
-
-    treynor = exceso_p.mean() * 252 / beta
-    return treynor, beta
+  treynor = exceso_p.mean() * periods / beta
+  return treynor, beta
 
 # Information Ratio
-def information_ratio(r, benchmark, periods=252):
+def information_ratio(r, benchmark, index, periods=252):
   # r: retornos del portafolio
   # benchmark: retornos del índice de referencia
   # periods = Número de días a considerar por año
+  # index: índice con las fechas del DataFrame de retornos del portafolio, se
+  #       puede calcular como:
+  #                 index_retornos = retornos.index
 
   # Convertir el array de NumPy de retornos del portafolio a una Serie de Pandas,
   # usando el índice original del DataFrame de retornos
-  r_p_series = pd.Series(r, index=retornos.index, name='portfolio_returns')
+  r_p_series = pd.Series(r, index, name='portfolio_returns')
 
   # Asegurar que el benchmark sea tratado como una Serie
   benchmark_series = benchmark.iloc[:, 0].rename('benchmark_returns')
