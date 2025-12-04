@@ -213,13 +213,75 @@ if str(portafolio_tipo) == 'Portafolio arbitrario':
         "Pesos": [0.1] * len(tickers)
         })
     tabla5 = st.data_editor(df_port, disabled=["Tickers"])
-
     if tabla5["Pesos"].sum()==1.0 and (tabla5["Pesos"].between(0,1).all()):
         st.write("La suma de los pesos suma 1, el 100%")
-        
         ########
         ## EN ESTE NIVEL DE IDENTACIÓN SE COMIENZA A ESCRIBIR MÁS CÓDIGO
         ########
+        #######
+        #######
+        # RICARDO
+        #######
+        ####### 
+        # DEFINIR PESOS (ELEGIDOS)
+        pesos_array = tabla5["Pesos"].values
+        # Benchmark (SPY) y Portafolio
+        benchmark_returns = df_spy_filt.dropna()
+        portfolio_assets_returns = df_general_filt.dropna()
+        # Alineación de fechas
+        common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
+        portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
+        benchmark_returns = benchmark_returns.loc[common_index]
+        # Retornos del Portafolio (R_p = Matriz * Pesos)
+        r_p = portfolio_assets_returns.dot(pesos_array)
+        # 3. Calcular TODAS las Métricas
+        try:
+            # Básicas
+            ret_anual = retorno_anual_portafolio(r_p.values)
+            vol_anual = volatilidad_portafolio(portfolio_assets_returns, pesos_array)
+            sharpe = sharpe_ratio(r_p.values, rf=tasa_ib_r)
+            # Riesgo y Distribución
+            max_dd = max_drawdown(r_p.values)
+            var_val, _ = var_historico(r_p.values, alpha=nivel_conf)
+            cvar_val, _ = cvar_historico(r_p.values, alpha=nivel_conf)
+            # Métricas Avanzadas (Nuevas)
+            sesgo = sesgo_portafolio(r_p.values)
+            curtosis = curtosis_portafolio(r_p.values)
+            sortino = sortino_ratio(r_p.values, rf=tasa_ib_r)
+            # Comparativas (Treynor y Beta)
+            treynor, beta = treynor_ratio(r_p.values, benchmark_returns, r_p.index, rf_rate=tasa_ib_r)
+        except Exception as e:
+            st.error(f"Error en métricas: {e}")
+            ret_anual = vol_anual = sharpe = max_dd = var_val = cvar_val = treynor = beta = sesgo = curtosis = sortino = 0
+
+        # 4. Visualización de Resultados
+        st.markdown("###  Desempeño del Portafolio")
+        # FILA 1: Rendimiento y Riesgo Básico
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Rendimiento Anual", f"{ret_anual:.2%}")
+        col2.metric("Volatilidad Anual", f"{vol_anual:.2%}")
+        col3.metric("Sharpe Ratio", f"{sharpe:.3f}")
+        col4.metric("Sortino Ratio", f"{sortino:.3f}") 
+        # FILA 2: Riesgo de Cola
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("VaR Histórico", f"{var_val:.2%}")
+        col2.metric("CVaR Histórico", f"{cvar_val:.2%}")
+        col3.metric("Max Drawdown", f"{max_dd:.2%}")
+        col4.metric("Beta (vs SPY)", f"{beta:.3f}")
+        # FILA 3: Distribución y Avanzadas
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Sesgo", f"{sesgo:.3f}")       
+        col2.metric("Curtosis", f"{curtosis:.3f}") 
+        col3.metric("Treynor Ratio", f"{treynor:.3f}")
+        st.subheader("Rendimiento Acumulado vs SPY")
+        cum_ret_port = (1 + r_p).cumprod()
+        cum_ret_bench = (1 + benchmark_returns['SPY']).cumprod()
+        st.line_chart(pd.DataFrame({"Portafolio": cum_ret_port, "Benchmark": cum_ret_bench}))
+        #####
+        #####
+        # FIN 1RA PARTE RICARDO
+        #####
+        #####
     else:
         st.write("La suma de los pesos debe sumar 1.0 y cada pesos deben estar entre 0 y 1")
         if tabla5["Pesos"].sum()<1.0:
@@ -231,12 +293,139 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Mínima Varianza':
     # ###########################################################################
     # SEGUNDO CASO
     # ###########################################################################
-    pass ##QUITARLO AL PONER CODIGO
+    #####
+    #####
+    # 2DA PARTE RICARDO
+    #####
+    #####
+    # 1. DEFINIR PESOS (Homogéneos)
+    n_activos = len(tickers)
+    pesos_array = np.array([1/n_activos] * n_activos)
+    # Benchmark (SPY) y Portafolio
+    benchmark_returns = df_spy_filt.dropna()
+    portfolio_assets_returns = df_general_filt.dropna() 
+        # Alineación de fechas
+    common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
+    portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
+    benchmark_returns = benchmark_returns.loc[common_index]
+        # Retornos del Portafolio (R_p = Matriz * Pesos)
+    r_p = portfolio_assets_returns.dot(pesos_array)
+        # 3. Calcular TODAS las Métricas
+    try:
+            # Básicas
+            ret_anual = retorno_anual_portafolio(r_p.values)
+            vol_anual = volatilidad_portafolio(portfolio_assets_returns, pesos_array)
+            sharpe = sharpe_ratio(r_p.values, rf=tasa_ib_r)
+            # Riesgo y Distribución
+            max_dd = max_drawdown(r_p.values)
+            var_val, _ = var_historico(r_p.values, alpha=nivel_conf)
+            cvar_val, _ = cvar_historico(r_p.values, alpha=nivel_conf)
+            # Métricas Avanzadas (Nuevas)
+            sesgo = sesgo_portafolio(r_p.values)
+            curtosis = curtosis_portafolio(r_p.values)
+            sortino = sortino_ratio(r_p.values, rf=tasa_ib_r)
+            # Comparativas (Treynor y Beta)
+            treynor, beta = treynor_ratio(r_p.values, benchmark_returns, r_p.index, rf_rate=tasa_ib_r)
+    except Exception as e:
+            st.error(f"Error en métricas: {e}")
+            ret_anual = vol_anual = sharpe = max_dd = var_val = cvar_val = treynor = beta = sesgo = curtosis = sortino = 0
+        # 4. Visualización de Resultados
+    st.markdown("###  Desempeño del Portafolio")
+        # FILA 1: Rendimiento y Riesgo Básico
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Rendimiento Anual", f"{ret_anual:.2%}")
+    col2.metric("Volatilidad Anual", f"{vol_anual:.2%}")
+    col3.metric("Sharpe Ratio", f"{sharpe:.3f}")
+    col4.metric("Sortino Ratio", f"{sortino:.3f}") 
+        # FILA 2: Riesgo de Cola
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("VaR Histórico", f"{var_val:.2%}")
+    col2.metric("CVaR Histórico", f"{cvar_val:.2%}")
+    col3.metric("Max Drawdown", f"{max_dd:.2%}")
+    col4.metric("Beta (vs SPY)", f"{beta:.3f}")
+        # FILA 3: Distribución y Avanzadas
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Sesgo", f"{sesgo:.3f}")       
+    col2.metric("Curtosis", f"{curtosis:.3f}") 
+    col3.metric("Treynor Ratio", f"{treynor:.3f}")
+    st.subheader("Rendimiento Acumulado vs SPY")
+    cum_ret_port = (1 + r_p).cumprod()
+    cum_ret_bench = (1 + benchmark_returns['SPY']).cumprod()
+    st.line_chart(pd.DataFrame({"Portafolio": cum_ret_port, "Benchmark": cum_ret_bench}))   
+    #####
+    #####
+    # FIN 2DA PARTE RICARDO
+    #####
+    #####
 elif str(portafolio_tipo) == 'Portafolio optimizado - Máximo Sharpe':
     # ###########################################################################
     # TERCER CASO
     # ###########################################################################
-    pass ##QUITARLO AL PONER CODIGO
+    #####
+    #####
+    # 3RA PARTE RICARDO
+    #####
+    #####
+    # 1. DEFINIR PESOS (Homogéneos)
+    n_activos = len(tickers)
+    pesos_array = np.array([1/n_activos] * n_activos)
+    # Benchmark (SPY) y Portafolio
+    benchmark_returns = df_spy_filt.dropna()
+    portfolio_assets_returns = df_general_filt.dropna()
+        # Alineación de fechas
+    common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
+    portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
+    benchmark_returns = benchmark_returns.loc[common_index]
+        # Retornos del Portafolio (R_p = Matriz * Pesos) 
+    r_p = portfolio_assets_returns.dot(pesos_array)
+        # 3. Calcular TODAS las Métricas
+    try:
+            # Básicas
+            ret_anual = retorno_anual_portafolio(r_p.values)
+            vol_anual = volatilidad_portafolio(portfolio_assets_returns, pesos_array)
+            sharpe = sharpe_ratio(r_p.values, rf=tasa_ib_r)
+            # Riesgo y Distribución
+            max_dd = max_drawdown(r_p.values)
+            var_val, _ = var_historico(r_p.values, alpha=nivel_conf)
+            cvar_val, _ = cvar_historico(r_p.values, alpha=nivel_conf)
+            # Métricas Avanzadas (Nuevas)
+            sesgo = sesgo_portafolio(r_p.values)
+            curtosis = curtosis_portafolio(r_p.values)
+            sortino = sortino_ratio(r_p.values, rf=tasa_ib_r)
+            # Comparativas (Treynor y Beta)
+            treynor, beta = treynor_ratio(r_p.values, benchmark_returns, r_p.index, rf_rate=tasa_ib_r)
+    except Exception as e:
+            st.error(f"Error en métricas: {e}")
+            ret_anual = vol_anual = sharpe = max_dd = var_val = cvar_val = treynor = beta = sesgo = curtosis = sortino = 0
+        # 4. Visualización de Resultados
+    st.markdown("###  Desempeño del Portafolio")
+
+        # FILA 1: Rendimiento y Riesgo Básico
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Rendimiento Anual", f"{ret_anual:.2%}")
+    col2.metric("Volatilidad Anual", f"{vol_anual:.2%}")
+    col3.metric("Sharpe Ratio", f"{sharpe:.3f}")
+    col4.metric("Sortino Ratio", f"{sortino:.3f}") 
+        # FILA 2: Riesgo de Cola
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("VaR Histórico", f"{var_val:.2%}")
+    col2.metric("CVaR Histórico", f"{cvar_val:.2%}")
+    col3.metric("Max Drawdown", f"{max_dd:.2%}")
+    col4.metric("Beta (vs SPY)", f"{beta:.3f}")
+        # FILA 3: Distribución y Avanzadas
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Sesgo", f"{sesgo:.3f}")       
+    col2.metric("Curtosis", f"{curtosis:.3f}") 
+    col3.metric("Treynor Ratio", f"{treynor:.3f}")
+    st.subheader("Rendimiento Acumulado vs SPY")
+    cum_ret_port = (1 + r_p).cumprod()
+    cum_ret_bench = (1 + benchmark_returns['SPY']).cumprod()
+    st.line_chart(pd.DataFrame({"Portafolio": cum_ret_port, "Benchmark": cum_ret_bench}))
+    #####
+    #####
+    # FIN 3RA PARTE RICARDO
+    #####
+    #####
 elif str(portafolio_tipo) == 'Portafolio optimizado - Rendimiento Fijo':
     # ###########################################################################
     # CUARTO CASO
@@ -250,8 +439,135 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Rendimiento Fijo':
         value=0.2,
         step=0.01
     )
+    #####
+    #####
+    # FIN 4TA PARTE RICARDO
+    #####
+    #####
+    # 1. DEFINIR PESOS (Homogéneos)
+    n_activos = len(tickers)
+    pesos_array = np.array([1/n_activos] * n_activos)
+    # Benchmark (SPY) y Portafolio
+    benchmark_returns = df_spy_filt.dropna()
+    portfolio_assets_returns = df_general_filt.dropna()
+        # Alineación de fechas
+    common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
+    portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
+    benchmark_returns = benchmark_returns.loc[common_index]
+        # Retornos del Portafolio (R_p = Matriz * Pesos)
+    r_p = portfolio_assets_returns.dot(pesos_array)
+        # 3. Calcular TODAS las Métricas
+    try:
+            # Básicas
+            ret_anual = retorno_anual_portafolio(r_p.values)
+            vol_anual = volatilidad_portafolio(portfolio_assets_returns, pesos_array)
+            sharpe = sharpe_ratio(r_p.values, rf=tasa_ib_r)
+            # Riesgo y Distribución
+            max_dd = max_drawdown(r_p.values)
+            var_val, _ = var_historico(r_p.values, alpha=nivel_conf)
+            cvar_val, _ = cvar_historico(r_p.values, alpha=nivel_conf)
+            # Métricas Avanzadas (Nuevas)
+            sesgo = sesgo_portafolio(r_p.values)
+            curtosis = curtosis_portafolio(r_p.values)
+            sortino = sortino_ratio(r_p.values, rf=tasa_ib_r)
+            # Comparativas (Treynor y Beta)
+            treynor, beta = treynor_ratio(r_p.values, benchmark_returns, r_p.index, rf_rate=tasa_ib_r)
+    except Exception as e:
+            st.error(f"Error en métricas: {e}")
+            ret_anual = vol_anual = sharpe = max_dd = var_val = cvar_val = treynor = beta = sesgo = curtosis = sortino = 0
+        # 4. Visualización de Resultados
+    st.markdown("###  Desempeño del Portafolio")
+        # FILA 1: Rendimiento y Riesgo Básico
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Rendimiento Anual", f"{ret_anual:.2%}")
+    col2.metric("Volatilidad Anual", f"{vol_anual:.2%}")
+    col3.metric("Sharpe Ratio", f"{sharpe:.3f}")
+    col4.metric("Sortino Ratio", f"{sortino:.3f}") 
+        # FILA 2: Riesgo de Cola
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("VaR Histórico", f"{var_val:.2%}")
+    col2.metric("CVaR Histórico", f"{cvar_val:.2%}")
+    col3.metric("Max Drawdown", f"{max_dd:.2%}")
+    col4.metric("Beta (vs SPY)", f"{beta:.3f}")
+        # FILA 3: Distribución y Avanzadas
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Sesgo", f"{sesgo:.3f}")       
+    col2.metric("Curtosis", f"{curtosis:.3f}") 
+    col3.metric("Treynor Ratio", f"{treynor:.3f}")
+    st.subheader("Rendimiento Acumulado vs SPY")
+    cum_ret_port = (1 + r_p).cumprod()
+    cum_ret_bench = (1 + benchmark_returns['SPY']).cumprod()
+    st.line_chart(pd.DataFrame({"Portafolio": cum_ret_port, "Benchmark": cum_ret_bench}))
+    #####
+    #####
+    # FIN 4TA PARTE RICARDO
+    #####
+    #####
 elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
     # ###########################################################################
     # QUINTO CASO
     # ###########################################################################
-    pass ##QUITARLO AL PONER CODIGO
+    #####
+    #####
+    # 4TA PARTE RICARDO
+    #####
+    #####
+    # 1. DEFINIR PESOS (Homogéneos)
+    n_activos = len(tickers)
+    pesos_array = np.array([1/n_activos] * n_activos)
+    # Benchmark (SPY) y Portafolio
+    benchmark_returns = df_spy_filt.dropna()
+    portfolio_assets_returns = df_general_filt.dropna()
+        # Alineación de fechas
+    common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
+    portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
+    benchmark_returns = benchmark_returns.loc[common_index]
+        # Retornos del Portafolio (R_p = Matriz * Pesos)
+    r_p = portfolio_assets_returns.dot(pesos_array)
+        # 3. Calcular TODAS las Métricas
+    try:
+            # Básicas
+            ret_anual = retorno_anual_portafolio(r_p.values)
+            vol_anual = volatilidad_portafolio(portfolio_assets_returns, pesos_array)
+            sharpe = sharpe_ratio(r_p.values, rf=tasa_ib_r)
+            # Riesgo y Distribución
+            max_dd = max_drawdown(r_p.values)
+            var_val, _ = var_historico(r_p.values, alpha=nivel_conf)
+            cvar_val, _ = cvar_historico(r_p.values, alpha=nivel_conf)
+            # Métricas Avanzadas (Nuevas)
+            sesgo = sesgo_portafolio(r_p.values)
+            curtosis = curtosis_portafolio(r_p.values)
+            sortino = sortino_ratio(r_p.values, rf=tasa_ib_r)
+            # Comparativas (Treynor y Beta)
+            treynor, beta = treynor_ratio(r_p.values, benchmark_returns, r_p.index, rf_rate=tasa_ib_r)
+    except Exception as e:
+            st.error(f"Error en métricas: {e}")
+            ret_anual = vol_anual = sharpe = max_dd = var_val = cvar_val = treynor = beta = sesgo = curtosis = sortino = 0
+        # 4. Visualización de Resultados
+    st.markdown("###  Desempeño del Portafolio")
+        # FILA 1: Rendimiento y Riesgo Básico
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Rendimiento Anual", f"{ret_anual:.2%}")
+    col2.metric("Volatilidad Anual", f"{vol_anual:.2%}")
+    col3.metric("Sharpe Ratio", f"{sharpe:.3f}")
+    col4.metric("Sortino Ratio", f"{sortino:.3f}") 
+        # FILA 2: Riesgo de Cola
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("VaR Histórico", f"{var_val:.2%}")
+    col2.metric("CVaR Histórico", f"{cvar_val:.2%}")
+    col3.metric("Max Drawdown", f"{max_dd:.2%}")
+    col4.metric("Beta (vs SPY)", f"{beta:.3f}")
+        # FILA 3: Distribución y Avanzadas
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Sesgo", f"{sesgo:.3f}")       
+    col2.metric("Curtosis", f"{curtosis:.3f}") 
+    col3.metric("Treynor Ratio", f"{treynor:.3f}")
+    st.subheader("Rendimiento Acumulado vs SPY")
+    cum_ret_port = (1 + r_p).cumprod()
+    cum_ret_bench = (1 + benchmark_returns['SPY']).cumprod()
+    st.line_chart(pd.DataFrame({"Portafolio": cum_ret_port, "Benchmark": cum_ret_bench}))
+    #####
+    #####
+    # 4TA PARTE RICARDO
+    #####
+    #####
