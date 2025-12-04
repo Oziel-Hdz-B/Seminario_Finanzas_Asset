@@ -8,11 +8,9 @@ Original file is located at
 """
 
 ############################# LIBRERÍAS #######################################
-import yfinance as yf
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import scipy.stats as st
 import scipy.optimize as op
 
 ##### MÉTRICAS QUE SE OCUPAN EN LAS FUNCIONES DE LOS PORTAFOLIOS ###############
