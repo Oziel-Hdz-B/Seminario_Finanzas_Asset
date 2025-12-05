@@ -10,28 +10,23 @@ from metricas_funciones import *
 from portafolios_markowitz import *
 
 # Hacemo la descarga de los csv de los activos que tenemos
-
 # Nombres de los archivos
 FILES = ['ACWI.csv', 'SPY.csv', 'todos.csv']
-
 filepath_1 = os.path.join('market', 'ACWI.csv')
 filepath_2 = os.path.join('market', 'SPY.csv')
 filepath_3 = os.path.join('market', 'todos.csv')
-
+# Leemos los csv
 df_spy = pd.DataFrame(pd.read_csv(filepath_2))
 df_acwy= pd.DataFrame(pd.read_csv(filepath_1))
 df_general= pd.DataFrame(pd.read_csv(filepath_3))
-
 # convertimos la columna 'Date' en datos de fecha
 df_spy['Date'] = pd.to_datetime(df_spy['Date'])
 df_acwy['Date'] = pd.to_datetime(df_acwy['Date'])
 df_general['Date'] = pd.to_datetime(df_general['Date'])
-
 # Establece 'Date' como el índice para facilitar el filtrado por rango de fechas
 df_spy = df_spy.set_index('Date')
 df_acwy = df_acwy.set_index('Date')
 df_general = df_general.set_index('Date')
-
 ###########################################################################
 # Parámetros a cosiderar del código
 # tickers <- contiene el nombre de los activos dados por el usuario
@@ -57,30 +52,25 @@ df_general = df_general.set_index('Date')
 # 
 # LOS MÁS IMORTANTES QUE VAN A USAR SON LOS DATAFRAMES DE JUSTO ARRIBA, LOS FILTRADOS
 ###########################################################################
-
 # #############################################################################
 # ##################################
 # CERO PARTE, SELECCIONAR ACTIVOS, FECHAS, Y MOSTRAR CARÁTULA
 # ##################################
 # #############################################################################
-
 # Sidebar
 with st.sidebar:
     # Información del proyecto
     st.title("Proyecto - Seminario de Finanzas I")
     st.markdown('<div style="margin-top: 20px;"></div>', unsafe_allow_html=True)
     st.markdown("""
-
     *Integrantes:*
     - Flores Moreno Alan Alberto
     - Gonzales Carapia Ricardo 
     - Hernández Banda Oziel
     - Jimenez Borzani Daniela Naomi
     """)
-
     # Layouts
     st.header("Escoge los activos", divider="red")
-
     ## Selectbox
     selectbox_1 = st.selectbox(
         "Activos Regionales o por sectores",
@@ -122,9 +112,7 @@ with st.sidebar:
             ],
             default=["XLK"]
         )
-
     st.markdown("---")
-    
     # Layouts
     st.header("Escoge las fechas de inicio y fin para los datos", divider="red")
     ## Date input
@@ -146,7 +134,6 @@ with st.sidebar:
     )
     fecha_inicio = datetime(year=fecha_inicio.year, month=fecha_inicio.month, day=fecha_inicio.day)
     fecha_fin = datetime(year=fecha_fin.year, month=fecha_fin.month, day=fecha_fin.day)
-
     # Layouts 
     st.header("Escoge la tasa libre de riesgo", divider="red")
     ## Input Numerico
@@ -160,29 +147,47 @@ with st.sidebar:
     st.header("Escoge el nivel de confianza para métricas de Riesgo", divider="red")
     ## Input Numerico
     nivel_conf = st.number_input(
-        "Tasa libre de Riesgo",
+        "Nivel de confianza",
         min_value = 0.9,
         max_value = 0.99,
         value=0.95,
         step=0.01
     )
-
+    st.header("Escoge tu Benchmark", divider="red")
+    selectbox_2 = st.selectbox(
+        "Bechmark",
+        ["S&P500", "ACWI","Regiones, como en instrucciones","Sectores, como en instrucciones"],
+        index=1
+    )
     st.markdown("---")
-
 ## HAGO EL FILTRADO POR FECHAS Y TICKERS DADOS EN INPUTS
 df_general_filt = df_general.loc[fecha_inicio:fecha_fin, tickers]
 df_spy_filt = df_spy.loc[fecha_inicio:fecha_fin]
 df_acwy_filtered = df_acwy.loc[fecha_inicio:fecha_fin]
-
+# Creo el BENCHMARK POR CASOS
+if str(selectbox_2) == "S&P500":
+    benchmark_returns = df_spy_filt.dropna()
+elif str(selectbox_2) == "ACWI":
+    benchmark_returns = df_acwy_filtered.dropna()
+elif str(selectbox_2) == "Regiones, como en instrucciones":
+    benchmark_returns = df_general.loc[fecha_inicio:fecha_fin,['SPLG','EWC','IEUR',
+                                                               'EEM','EWJ']].dot([0.7062,0.0323,
+                                                                                  0.1176,0.0902,0.0537])
+    benchmark_returns = pd.DataFrame(benchmark_returns)
+elif str(selectbox_2) == "Sectores, como en instrucciones":
+    benchmark_returns = df_general.loc[fecha_inicio:fecha_fin,['XLC','XLY','XLP','XLE',
+                                                               'XLF','XLV','XLI','XLB',
+                                                               'XLRE','XLK','XLU']].dot([0.0999,0.1025,0.0482,0.0295,
+                                                                                         0.1307,0.0958,0.0809,0.0166,
+                                                                                         0.0187,0.3535,0.0237])
+    benchmark_returns = pd.DataFrame(benchmark_returns)
 # #############################################################################
 # ##################################
 # 1RA PARTE, SELECCIONAR EL TIPO DE PORTAFOLIO
 # ##################################
 # #############################################################################
-
 # Layouts
 st.header("Escoge el tipo de portafolio que gustes", divider="red")
-
 ## Multiselect
 portafolio_tipo = st.selectbox(
     "Tipos de portafolios",
@@ -195,13 +200,11 @@ portafolio_tipo = st.selectbox(
     ],
     index=1
 )
-
 # ###########################################################################
 # ##################################
 # 3ERA PARTE DIVIOSIÓN DE CASOS
 # ##################################
 # ###########################################################################
-
 if str(portafolio_tipo) == 'Portafolio arbitrario':
     # ###########################################################################
     # PRIMER CASO
@@ -226,8 +229,6 @@ if str(portafolio_tipo) == 'Portafolio arbitrario':
         ####### 
         # DEFINIR PESOS (ELEGIDOS)
         pesos_array = tabla5["Pesos"].values
-        # Benchmark (SPY) y Portafolio
-        benchmark_returns = df_spy_filt.dropna()
         portfolio_assets_returns = df_general_filt.dropna()
         # Alineación de fechas
         common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
@@ -276,7 +277,7 @@ if str(portafolio_tipo) == 'Portafolio arbitrario':
         col3.metric("Treynor Ratio", f"{treynor:.3f}")
         st.subheader("Rendimiento Acumulado vs SPY")
         cum_ret_port = (1 + r_p).cumprod()
-        cum_ret_bench = (1 + benchmark_returns['SPY']).cumprod()
+        cum_ret_bench = (1 + benchmark_returns.iloc[:, 0]).cumprod()
         st.line_chart(pd.DataFrame({"Portafolio": cum_ret_port, "Benchmark": cum_ret_bench}))
         #####
         #####
@@ -302,8 +303,6 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Mínima Varianza':
     # 1. DEFINIR PESOS (Homogéneos)
     n_activos = len(tickers)
     pesos_array = np.array([1/n_activos] * n_activos)
-    # Benchmark (SPY) y Portafolio
-    benchmark_returns = df_spy_filt.dropna()
     portfolio_assets_returns = df_general_filt.dropna() 
         # Alineación de fechas
     common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
@@ -351,7 +350,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Mínima Varianza':
     col3.metric("Treynor Ratio", f"{treynor:.3f}")
     st.subheader("Rendimiento Acumulado vs SPY")
     cum_ret_port = (1 + r_p).cumprod()
-    cum_ret_bench = (1 + benchmark_returns['SPY']).cumprod()
+    cum_ret_bench = (1 + benchmark_returns.iloc[:, 0]).cumprod()
     st.line_chart(pd.DataFrame({"Portafolio": cum_ret_port, "Benchmark": cum_ret_bench}))   
     #####
     #####
@@ -370,8 +369,6 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Máximo Sharpe':
     # 1. DEFINIR PESOS (Homogéneos)
     n_activos = len(tickers)
     pesos_array = np.array([1/n_activos] * n_activos)
-    # Benchmark (SPY) y Portafolio
-    benchmark_returns = df_spy_filt.dropna()
     portfolio_assets_returns = df_general_filt.dropna()
         # Alineación de fechas
     common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
@@ -420,7 +417,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Máximo Sharpe':
     col3.metric("Treynor Ratio", f"{treynor:.3f}")
     st.subheader("Rendimiento Acumulado vs SPY")
     cum_ret_port = (1 + r_p).cumprod()
-    cum_ret_bench = (1 + benchmark_returns['SPY']).cumprod()
+    cum_ret_bench = (1 + benchmark_returns.iloc[:, 0]).cumprod()
     st.line_chart(pd.DataFrame({"Portafolio": cum_ret_port, "Benchmark": cum_ret_bench}))
     #####
     #####
@@ -448,8 +445,6 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Rendimiento Fijo':
     # 1. DEFINIR PESOS (Homogéneos)
     n_activos = len(tickers)
     pesos_array = np.array([1/n_activos] * n_activos)
-    # Benchmark (SPY) y Portafolio
-    benchmark_returns = df_spy_filt.dropna()
     portfolio_assets_returns = df_general_filt.dropna()
         # Alineación de fechas
     common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
@@ -497,7 +492,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Rendimiento Fijo':
     col3.metric("Treynor Ratio", f"{treynor:.3f}")
     st.subheader("Rendimiento Acumulado vs SPY")
     cum_ret_port = (1 + r_p).cumprod()
-    cum_ret_bench = (1 + benchmark_returns['SPY']).cumprod()
+    cum_ret_bench = (1 + benchmark_returns.iloc[:, 0]).cumprod()
     st.line_chart(pd.DataFrame({"Portafolio": cum_ret_port, "Benchmark": cum_ret_bench}))
     #####
     #####
@@ -516,8 +511,6 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
     # 1. DEFINIR PESOS (Homogéneos)
     n_activos = len(tickers)
     pesos_array = np.array([1/n_activos] * n_activos)
-    # Benchmark (SPY) y Portafolio
-    benchmark_returns = df_spy_filt.dropna()
     portfolio_assets_returns = df_general_filt.dropna()
         # Alineación de fechas
     common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
@@ -565,7 +558,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
     col3.metric("Treynor Ratio", f"{treynor:.3f}")
     st.subheader("Rendimiento Acumulado vs SPY")
     cum_ret_port = (1 + r_p).cumprod()
-    cum_ret_bench = (1 + benchmark_returns['SPY']).cumprod()
+    cum_ret_bench = (1 + benchmark_returns.iloc[:, 0]).cumprod()
     st.line_chart(pd.DataFrame({"Portafolio": cum_ret_port, "Benchmark": cum_ret_bench}))
     #####
     #####
