@@ -269,13 +269,13 @@ if str(portafolio_tipo) == 'Portafolio arbitrario':
         col1.metric("VaR Histórico", f"{var_val:.2%}")
         col2.metric("CVaR Histórico", f"{cvar_val:.2%}")
         col3.metric("Max Drawdown", f"{max_dd:.2%}")
-        col4.metric("Beta (vs SPY)", f"{beta:.3f}")
+        col4.metric("Beta (vs Benchmark)", f"{beta:.3f}")
         # FILA 3: Distribución y Avanzadas
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Sesgo", f"{sesgo:.3f}")       
         col2.metric("Curtosis", f"{curtosis:.3f}") 
         col3.metric("Treynor Ratio", f"{treynor:.3f}")
-        st.subheader("Rendimiento Acumulado vs SPY")
+        st.subheader("Rendimiento Acumulado vs Benchmark")
         cum_ret_port = (1 + r_p).cumprod()
         cum_ret_bench = (1 + benchmark_returns.iloc[:, 0]).cumprod()
         st.line_chart(pd.DataFrame({"Portafolio": cum_ret_port, "Benchmark": cum_ret_bench}))
@@ -300,16 +300,48 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Mínima Varianza':
     # 2DA PARTE RICARDO
     #####
     #####
+    # === INICIO PARTE DANIELA ===
+    # En este bloque calculo los pesos óptimos usando la función portafolio_minima_varianza
+    # (definida en portafolios_markowitz.py), asigno esos pesos a 'pesos_array' y
+    # recalculo r_p con dichos pesos para que el bloque original de Ricardo use el r_p optimizado.
+    # No se elimina código previo; únicamente se redefine pesos_array y r_p.
+    try:
+        portfolio_assets_returns = df_general_filt.dropna()
+        # Alineación de fechas con benchmark (igual que estructura original)
+        common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
+        portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
+        benchmark_returns = benchmark_returns.loc[common_index]
+
+        # Llamada a la función de mínima varianza: devuelve (pesos_optimos, retorno, volatilidad)
+        pesos_optimos, _, _ = portafolio_minima_varianza(portfolio_assets_returns)
+        # Aseguramos que pesos sean numpy array
+        pesos_array = np.array(pesos_optimos)
+        # Recalculo r_p usando los pesos óptimos (r_p será usado por el bloque original de Ricardo)
+        r_p = portfolio_assets_returns.dot(pesos_array)
+    except Exception as e:
+        # Si falla la optimización, dejar pesos homogéneos como fallback (NO se borra el flujo original)
+        st.warning(f" Error calculando portafolio mínima varianza: {e}. Se usan pesos homogéneos como fallback.")
+        n_activos = len(tickers)
+        pesos_array = np.array([1/n_activos] * n_activos)
+        portfolio_assets_returns = df_general_filt.dropna()
+        common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
+        portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
+        benchmark_returns = benchmark_returns.loc[common_index]
+        r_p = portfolio_assets_returns.dot(pesos_array)
+    # === FIN PARTE DANIELA ===
+    st.write(pd.DataFrame({'Tickers':pd.array(tickers),'Pesos del portafolio':pd.array(pesos_array)}))
     # 1. DEFINIR PESOS (Homogéneos)
+    # El código original definía pesos homogéneos. Ahora 'pesos_array' ya fue
+    # redefinido por la PARTE DANIELA justo arriba usando la optimización.
     n_activos = len(tickers)
-    pesos_array = np.array([1/n_activos] * n_activos)
+    # (No sobrescribimos pesos_array aquí para no eliminar la PARTE DANIELA)
     portfolio_assets_returns = df_general_filt.dropna() 
         # Alineación de fechas
     common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
     portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
     benchmark_returns = benchmark_returns.loc[common_index]
         # Retornos del Portafolio (R_p = Matriz * Pesos)
-    r_p = portfolio_assets_returns.dot(pesos_array)
+    # r_p ya está calculado por la PARTE DANIELA
         # 3. Calcular TODAS las Métricas
     try:
             # Básicas
@@ -342,13 +374,13 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Mínima Varianza':
     col1.metric("VaR Histórico", f"{var_val:.2%}")
     col2.metric("CVaR Histórico", f"{cvar_val:.2%}")
     col3.metric("Max Drawdown", f"{max_dd:.2%}")
-    col4.metric("Beta (vs SPY)", f"{beta:.3f}")
+    col4.metric("Beta (vs Benchmark)", f"{beta:.3f}")
         # FILA 3: Distribución y Avanzadas
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Sesgo", f"{sesgo:.3f}")       
     col2.metric("Curtosis", f"{curtosis:.3f}") 
     col3.metric("Treynor Ratio", f"{treynor:.3f}")
-    st.subheader("Rendimiento Acumulado vs SPY")
+    st.subheader("Rendimiento Acumulado vs Benchmark")
     cum_ret_port = (1 + r_p).cumprod()
     cum_ret_bench = (1 + benchmark_returns.iloc[:, 0]).cumprod()
     st.line_chart(pd.DataFrame({"Portafolio": cum_ret_port, "Benchmark": cum_ret_bench}))   
@@ -366,7 +398,32 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Máximo Sharpe':
     # 3RA PARTE RICARDO
     #####
     #####
-    # 1. DEFINIR PESOS (Homogéneos)
+    # === INICIO PARTE DANIELA ===
+    # Este bloque calcula los pesos que maximizan el Sharpe usando la función
+    # portafolio_maximo_sharpe(retornos, rf) y redefine 'pesos_array' y 'r_p'
+    # para que las métricas posteriores las calcule Ricardo con los pesos óptimos.
+    try:
+        portfolio_assets_returns = df_general_filt.dropna()
+        common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
+        portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
+        benchmark_returns = benchmark_returns.loc[common_index]
+
+        # Llamada a la función de Maximos Sharpe: devuelve (pesos_optimos, retorno, volatilidad)
+        pesos_optimos, _, _ = portafolio_maximo_sharpe(portfolio_assets_returns, rf=tasa_ib_r)
+        pesos_array = np.array(pesos_optimos)
+        r_p = portfolio_assets_returns.dot(pesos_array)
+    except Exception as e:
+        st.warning(f"Error calculando portafolio máximo Sharpe: {e}. Se usan pesos homogéneos como fallback.")
+        n_activos = len(tickers)
+        pesos_array = np.array([1/n_activos] * n_activos)
+        portfolio_assets_returns = df_general_filt.dropna()
+        common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
+        portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
+        benchmark_returns = benchmark_returns.loc[common_index]
+        r_p = portfolio_assets_returns.dot(pesos_array)
+    # === FIN PARTE DANIELA ===
+    st.write(pd.DataFrame({'Tickers':pd.array(tickers),'Pesos del portafolio':pd.array(pesos_array)}))
+    #  1. DEFINIR PESOS (Homogéneos)
     n_activos = len(tickers)
     pesos_array = np.array([1/n_activos] * n_activos)
     portfolio_assets_returns = df_general_filt.dropna()
@@ -375,7 +432,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Máximo Sharpe':
     portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
     benchmark_returns = benchmark_returns.loc[common_index]
         # Retornos del Portafolio (R_p = Matriz * Pesos) 
-    r_p = portfolio_assets_returns.dot(pesos_array)
+    # Nota: r_p ya fue definido por la PARTE DANIELA
         # 3. Calcular TODAS las Métricas
     try:
             # Básicas
@@ -409,13 +466,13 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Máximo Sharpe':
     col1.metric("VaR Histórico", f"{var_val:.2%}")
     col2.metric("CVaR Histórico", f"{cvar_val:.2%}")
     col3.metric("Max Drawdown", f"{max_dd:.2%}")
-    col4.metric("Beta (vs SPY)", f"{beta:.3f}")
+    col4.metric("Beta (vs Benchmark)", f"{beta:.3f}")
         # FILA 3: Distribución y Avanzadas
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Sesgo", f"{sesgo:.3f}")       
     col2.metric("Curtosis", f"{curtosis:.3f}") 
     col3.metric("Treynor Ratio", f"{treynor:.3f}")
-    st.subheader("Rendimiento Acumulado vs SPY")
+    st.subheader("Rendimiento Acumulado vs Benchmark")
     cum_ret_port = (1 + r_p).cumprod()
     cum_ret_bench = (1 + benchmark_returns.iloc[:, 0]).cumprod()
     st.line_chart(pd.DataFrame({"Portafolio": cum_ret_port, "Benchmark": cum_ret_bench}))
@@ -439,9 +496,34 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Rendimiento Fijo':
     )
     #####
     #####
-    # FIN 4TA PARTE RICARDO
+    # 4TA PARTE RICARDO
     #####
     #####
+    # === INICIO PARTE DANIELA ===
+    # En este bloque uso min_varianza_dado_retorno para obtener los pesos del portafolio
+    # que cumpla con el rendimiento objetivo y luego recalculo r_p para que Ricardo
+    # calcule las métricas con dichos pesos.
+    try:
+        portfolio_assets_returns = df_general_filt.dropna()
+        common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
+        portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
+        benchmark_returns = benchmark_returns.loc[common_index]
+
+        # Llamada a la función que minimiza varianza para un retorno objetivo
+        pesos_optimos, _, _ = min_varianza_dado_retorno(portfolio_assets_returns, target_return=rend_objetivo)
+        pesos_array = np.array(pesos_optimos)
+        r_p = portfolio_assets_returns.dot(pesos_array)
+    except Exception as e:
+        st.warning(f"Error calculando portafolio con rendimiento fijo: {e}. Se usan pesos homogéneos como fallback.")
+        n_activos = len(tickers)
+        pesos_array = np.array([1/n_activos] * n_activos)
+        portfolio_assets_returns = df_general_filt.dropna()
+        common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
+        portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
+        benchmark_returns = benchmark_returns.loc[common_index]
+        r_p = portfolio_assets_returns.dot(pesos_array)
+    # === FIN PARTE DANIELA ===
+    st.write(pd.DataFrame({'Tickers':pd.array(tickers),'Pesos del portafolio':pd.array(pesos_array)}))
     # 1. DEFINIR PESOS (Homogéneos)
     n_activos = len(tickers)
     pesos_array = np.array([1/n_activos] * n_activos)
@@ -451,7 +533,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Rendimiento Fijo':
     portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
     benchmark_returns = benchmark_returns.loc[common_index]
         # Retornos del Portafolio (R_p = Matriz * Pesos)
-    r_p = portfolio_assets_returns.dot(pesos_array)
+    # r_p ya fue redefinido por la PARTE DANIELA
         # 3. Calcular TODAS las Métricas
     try:
             # Básicas
@@ -484,13 +566,13 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Rendimiento Fijo':
     col1.metric("VaR Histórico", f"{var_val:.2%}")
     col2.metric("CVaR Histórico", f"{cvar_val:.2%}")
     col3.metric("Max Drawdown", f"{max_dd:.2%}")
-    col4.metric("Beta (vs SPY)", f"{beta:.3f}")
+    col4.metric("Beta (vs Benchmark)", f"{beta:.3f}")
         # FILA 3: Distribución y Avanzadas
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Sesgo", f"{sesgo:.3f}")       
     col2.metric("Curtosis", f"{curtosis:.3f}") 
     col3.metric("Treynor Ratio", f"{treynor:.3f}")
-    st.subheader("Rendimiento Acumulado vs SPY")
+    st.subheader("Rendimiento Acumulado vs Benchmark")
     cum_ret_port = (1 + r_p).cumprod()
     cum_ret_bench = (1 + benchmark_returns.iloc[:, 0]).cumprod()
     st.line_chart(pd.DataFrame({"Portafolio": cum_ret_port, "Benchmark": cum_ret_bench}))
@@ -505,7 +587,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
     # ###########################################################################
     #####
     #####
-    # 4TA PARTE RICARDO
+    # 5TA PARTE RICARDO
     #####
     #####
     # 1. DEFINIR PESOS (Homogéneos)
@@ -519,6 +601,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
         # Retornos del Portafolio (R_p = Matriz * Pesos)
     r_p = portfolio_assets_returns.dot(pesos_array)
         # 3. Calcular TODAS las Métricas
+    st.write(pd.DataFrame({'Tickers':pd.array(tickers),'Pesos del portafolio':pd.array(pesos_array)}))
     try:
             # Básicas
             ret_anual = retorno_anual_portafolio(r_p.values)
@@ -550,18 +633,18 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
     col1.metric("VaR Histórico", f"{var_val:.2%}")
     col2.metric("CVaR Histórico", f"{cvar_val:.2%}")
     col3.metric("Max Drawdown", f"{max_dd:.2%}")
-    col4.metric("Beta (vs SPY)", f"{beta:.3f}")
+    col4.metric("Beta (vs Benchmark)", f"{beta:.3f}")
         # FILA 3: Distribución y Avanzadas
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Sesgo", f"{sesgo:.3f}")       
     col2.metric("Curtosis", f"{curtosis:.3f}") 
     col3.metric("Treynor Ratio", f"{treynor:.3f}")
-    st.subheader("Rendimiento Acumulado vs SPY")
+    st.subheader("Rendimiento Acumulado vs Benchmark")
     cum_ret_port = (1 + r_p).cumprod()
     cum_ret_bench = (1 + benchmark_returns.iloc[:, 0]).cumprod()
     st.line_chart(pd.DataFrame({"Portafolio": cum_ret_port, "Benchmark": cum_ret_bench}))
     #####
     #####
-    # 4TA PARTE RICARDO
+    # FIN 5TA PARTE RICARDO
     #####
     #####
