@@ -6,4 +6,3 @@ plotly
 datetime
 yfinance
 scipy
-math
