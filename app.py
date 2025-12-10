@@ -6,6 +6,7 @@ import plotly.express as px
 from datetime import datetime
 import yfinance as yf
 import os
+from math import factorial
 from metricas_funciones import *
 from portafolios_markowitz import *
 
@@ -330,19 +331,6 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Mínima Varianza':
         r_p = portfolio_assets_returns.dot(pesos_array)
     # === FIN PARTE DANIELA ===
     st.write(pd.DataFrame({'Tickers':pd.array(tickers),'Pesos del portafolio':pd.array(pesos_array)}))
-    # 1. DEFINIR PESOS (Homogéneos)
-    # El código original definía pesos homogéneos. Ahora 'pesos_array' ya fue
-    # redefinido por la PARTE DANIELA justo arriba usando la optimización.
-    n_activos = len(tickers)
-    # (No sobrescribimos pesos_array aquí para no eliminar la PARTE DANIELA)
-    portfolio_assets_returns = df_general_filt.dropna() 
-        # Alineación de fechas
-    common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
-    portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
-    benchmark_returns = benchmark_returns.loc[common_index]
-        # Retornos del Portafolio (R_p = Matriz * Pesos)
-    # r_p ya está calculado por la PARTE DANIELA
-        # 3. Calcular TODAS las Métricas
     try:
             # Básicas
             ret_anual = retorno_anual_portafolio(r_p.values)
@@ -423,17 +411,6 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Máximo Sharpe':
         r_p = portfolio_assets_returns.dot(pesos_array)
     # === FIN PARTE DANIELA ===
     st.write(pd.DataFrame({'Tickers':pd.array(tickers),'Pesos del portafolio':pd.array(pesos_array)}))
-    #  1. DEFINIR PESOS (Homogéneos)
-    n_activos = len(tickers)
-    pesos_array = np.array([1/n_activos] * n_activos)
-    portfolio_assets_returns = df_general_filt.dropna()
-        # Alineación de fechas
-    common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
-    portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
-    benchmark_returns = benchmark_returns.loc[common_index]
-        # Retornos del Portafolio (R_p = Matriz * Pesos) 
-    # Nota: r_p ya fue definido por la PARTE DANIELA
-        # 3. Calcular TODAS las Métricas
     try:
             # Básicas
             ret_anual = retorno_anual_portafolio(r_p.values)
@@ -488,7 +465,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Rendimiento Fijo':
     st.header("Escoge el rendimiento objetivo para este portafolio", divider="red")
     ## Input Numerico
     rend_objetivo = st.number_input(
-        "Tasa libre de Riesgo",
+        "Rendimiento objeetivo",
         min_value = 0.03,
         max_value = 0.5,
         value=0.2,
@@ -524,17 +501,6 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Rendimiento Fijo':
         r_p = portfolio_assets_returns.dot(pesos_array)
     # === FIN PARTE DANIELA ===
     st.write(pd.DataFrame({'Tickers':pd.array(tickers),'Pesos del portafolio':pd.array(pesos_array)}))
-    # 1. DEFINIR PESOS (Homogéneos)
-    n_activos = len(tickers)
-    pesos_array = np.array([1/n_activos] * n_activos)
-    portfolio_assets_returns = df_general_filt.dropna()
-        # Alineación de fechas
-    common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
-    portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
-    benchmark_returns = benchmark_returns.loc[common_index]
-        # Retornos del Portafolio (R_p = Matriz * Pesos)
-    # r_p ya fue redefinido por la PARTE DANIELA
-        # 3. Calcular TODAS las Métricas
     try:
             # Básicas
             ret_anual = retorno_anual_portafolio(r_p.values)
@@ -590,17 +556,186 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
     # 5TA PARTE RICARDO
     #####
     #####
-    # 1. DEFINIR PESOS (Homogéneos)
-    n_activos = len(tickers)
-    pesos_array = np.array([1/n_activos] * n_activos)
-    portfolio_assets_returns = df_general_filt.dropna()
-        # Alineación de fechas
-    common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
-    portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
-    benchmark_returns = benchmark_returns.loc[common_index]
-        # Retornos del Portafolio (R_p = Matriz * Pesos)
-    r_p = portfolio_assets_returns.dot(pesos_array)
-        # 3. Calcular TODAS las Métricas
+    # ================================================================
+    # PARÁMETROS DEL MODELO
+    # ================================================================
+    st.header("Parámetros del Modelo", divider="red")
+    col1, col2 = st.columns(2)       
+    with col1:
+        st.subheader("Parámetro Tau (τ)")
+        st.markdown("""
+        Escala de incertidumbre en las expectativas de mercado.
+        """)
+        tau_ = st.number_input(
+            "Ingresa el valor de Tau (τ):",
+            min_value=0.001,
+            max_value=1.0,
+            value=0.025,
+            step=0.001,
+            format="%.3f"
+        )
+    with col2:
+        st.subheader("Coeficiente de Aversión al Riesgo (λ)")
+        st.markdown("""
+        Mide la preferencia del inversor por el riesgo.
+        """)
+        lam_ = st.number_input(
+            "Coeficiente de aversión al riesgo (λ):",
+            min_value=0.1,
+            max_value=10.0,
+            value=2.5,
+            step=0.1
+        )
+                
+    st.header("Definir Views del Mercado",divider="red")
+    st.markdown("""
+    **Matriz P:** Define tus views sobre los activos.
+    - **1:** Activo con retorno positivo
+    - **-1:** Activo con retorno negativo  
+    - **0:** Activo no considerado en la view
+    **Vector Q:** Nivel de confianza en cada view (0 a 1)
+    """) 
+    # Número de views
+    if len(tickers)<3:
+        n_views = st.number_input(
+            "Número de views que deseas definir:",
+            min_value=1,
+            max_value=1, #combinaciones de n en 2
+            value=1,
+            step=1
+        )
+    else:
+        n_views = st.number_input(
+            "Número de views que deseas definir:",
+            min_value=1,
+            max_value=int(factorial(len(tickers))/(factorial(len(tickers)-2)*2)), #combinaciones de n en 2
+            value=2,
+            step=1
+        )
+    n_assets = len(tickers) 
+    # Crear matriz P editable
+    st.subheader("Matriz P (Views)")
+    st.write(f"Dimensiones: {n_views} views × {n_assets} activos")
+            
+    # Crear DataFrame para la matriz P
+    p_data = []
+    for i in range(n_views):
+        row = []
+        for j in range(n_assets):
+            # Inicializar con 0
+            row.append(0)
+        p_data.append(row)
+            
+    p_df = pd.DataFrame(
+        p_data,
+        columns=tickers,
+        index=[f"View {i+1}" for i in range(n_views)]
+    )
+            
+    # Editar matriz P con restricciones
+    st.info("💡 Solo puedes ingresar valores: -1, 0, o 1")   
+    # Crear columnas para edición
+    cols = st.columns(min(6, n_assets + 1))     
+    # Diccionario para almacenar valores
+    p_values = {}     
+    with cols[0]:
+        st.write("**View**")
+        for i in range(n_views):
+            st.write(f"View {i+1}")      
+    for j, asset in enumerate(tickers):
+        if j < len(cols) - 1:
+            with cols[j + 1]:
+                st.write(f"**{asset}**")
+                for i in range(n_views):
+                    key = f"p_{i}_{j}"
+                    value = st.selectbox(
+                        "",
+                        options=[-1, 0, 1],
+                        index=1,  # 0 es el valor por defecto
+                        key=key,
+                        label_visibility="collapsed"
+                    )
+                    p_values[key] = value      
+    # Construir matriz P desde los valores
+    P = np.zeros((n_views, n_assets))
+    for i in range(n_views):
+        for j in range(n_assets):
+            key = f"p_{i}_{j}"
+            P[i, j] = p_values.get(key, 0)
+    # Mostrar matriz P
+    st.subheader("Matriz P Definida")
+    p_display_df = pd.DataFrame(
+        P,
+        columns=tickers,
+        index=[f"View {i+1}" for i in range(n_views)]
+    )
+    st.dataframe(p_display_df, use_container_width=True)         
+    # Vector Q
+    st.subheader("Vector Q (Niveles de Confianza)")
+    st.write(f"Dimensiones: {n_views} views")
+    # Primero, necesitamos definir la función describe_view
+    def describe_view(view_row, asset_names):
+        """Describe una view en texto legible"""
+        positives = [asset_names[i] for i, val in enumerate(view_row) if val == 1]
+        negatives = [asset_names[i] for i, val in enumerate(view_row) if val == -1]
+        
+        if positives and negatives:
+            return f"{positives[0]} superará a {negatives[0]}"
+        elif positives:
+            return f"{positives[0]} tendrá rendimiento positivo"
+        elif negatives:
+            return f"{negatives[0]} tendrá rendimiento negativo"
+        else:
+            return "View no definida"
+    q_data = []
+    for i in range(n_views):
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            # Llamamos a la función describe_view con la fila correspondiente de P
+            view_description = describe_view(P[i], tickers)
+            st.write(f"**View {i+1}:** {view_description}")
+        with col2:
+            q_value = st.number_input(
+                f"Confianza View {i+1}:",
+                min_value=0.0,
+                max_value=1.0,
+                value=0.5,
+                step=0.05,
+                key=f"q_{i}"
+            )
+            q_data.append(q_value)
+    Q = np.array(q_data)
+            
+    # Mostrar vector Q
+    q_display_df = pd.DataFrame(
+        Q.reshape(-1, 1),
+        columns=["Confianza"],
+        index=[f"View {i+1}" for i in range(n_views)]
+    )
+    st.dataframe(q_display_df, use_container_width=True)
+
+    try:
+        portfolio_assets_returns = df_general_filt.dropna()
+        common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
+        portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
+        benchmark_returns = benchmark_returns.loc[common_index]
+
+        # Llamada a la función que minimiza varianza para un retorno objetivo
+        pesos_optimos,ret_post = black_litterman_portfolio(portfolio_assets_returns, 
+                                                        tau_, 
+                                                        tasa_ib_r, 
+                                                        P, Q, lam_, sum_constraint=True)
+        pesos_array = np.array(pesos_optimos)
+        r_p = portfolio_assets_returns.dot(pesos_array)
+    except Exception as e:
+        st.warning(f"Error calculando portafolio: {e}. Se usan pesos homogéneos como fallback.")
+        n_activos = len(tickers)
+        pesos_array = np.array([1/n_activos] * n_activos)
+        portfolio_assets_returns = df_general_filt.dropna()
+        common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
+        portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
+        benchmark_returns = benchmark_returns.loc[common_index]
+        r_p = portfolio_assets_returns.dot(pesos_array)
     st.write(pd.DataFrame({'Tickers':pd.array(tickers),'Pesos del portafolio':pd.array(pesos_array)}))
     try:
             # Básicas

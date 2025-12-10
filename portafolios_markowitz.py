@@ -162,3 +162,86 @@ def min_varianza_dado_retorno(retornos, target_return):
     #     2.- Retorno Anual del Portafolio
     #     3.- Volatilidad Anual del Portafolio
     return pesos_optimos, retorno, volatilidad
+
+def black_litterman_portfolio(returns, tau, rf_rate, P, Q, lam, sum_constraint=True):
+    """
+    Calcula la asignación óptima de activos usando el modelo Black-Litterman.
+    
+    Parámetros:
+    -----------
+    returns : array-like (n_assets, n_days) o (n_days, n_assets)
+        Rendimientos históricos diarios de los activos
+    tau : float
+        Parámetro de escala de la incertidumbre (generalmente entre 0.01 y 0.05)
+    rf_rate : float
+        Tasa libre de riesgo diaria
+    P : array-like (n_views, n_assets)
+        Matriz de selección de views
+    Q : array-like (n_views,)
+        Vector de valores esperados de las views
+    lam : float
+        Coeficiente de aversión al riesgo
+    sum_constraint : bool
+        Si True, los pesos suman 1; si False, no hay restricción de suma
+        
+    Retorna:
+    --------
+    w_optimal : numpy array
+        Pesos óptimos del portafolio
+    posterior_returns : numpy array
+        Retornos esperados posteriores de Black-Litterman
+    """
+    # Asegurar que returns sea un array numpy
+    returns = np.array(returns)
+    # Si returns tiene forma (n_days, n_assets), transponer
+    if returns.shape[0] > returns.shape[1]:
+        returns = returns.T
+    n_assets = returns.shape[0]
+    # 1. Calcular retornos medios históricos (Π) y matriz de covarianza (Σ)
+    # Π = retornos excedentes históricos (sobre tasa libre de riesgo)
+    historical_mean = np.mean(returns, axis=1)
+    Pi = historical_mean - rf_rate  # Retornos excedentes
+    # Calcular matriz de covarianza Σ
+    Sigma = np.cov(returns)
+    # 2. Calcular Ω (matriz de covarianza de las views)
+    # Ω = P * (τΣ) * P^T
+    Omega = P @ (tau * Sigma) @ P.T
+    # Asegurar que Ω sea invertible (añadir pequeña diagonal si es necesario)
+    if np.linalg.matrix_rank(Omega) < Omega.shape[0]:
+        Omega += np.eye(Omega.shape[0]) * 1e-6
+    # 3. Calcular el inverso de (τΣ)
+    tau_Sigma_inv = np.linalg.inv(tau * Sigma)
+    # 4. Calcular retornos posteriores esperados (fórmula de Black-Litterman)
+    # R_posterior = [(τΣ)^-1 + P'Ω^-1P]^-1 * [(τΣ)^-1Π + P'Ω^-1Q]
+    P_T = P.T
+    # Primera parte: [(τΣ)^-1 + P'Ω^-1P]
+    Omega_inv = np.linalg.inv(Omega)
+    first_part = tau_Sigma_inv + P_T @ Omega_inv @ P
+    # Segunda parte: [(τΣ)^-1Π + P'Ω^-1Q]
+    second_part = tau_Sigma_inv @ Pi + P_T @ Omega_inv @ Q
+    # Calcular retornos posteriores
+    posterior_returns = np.linalg.inv(first_part) @ second_part
+    # 5. Calcular asignación óptima de activos
+    if not sum_constraint:
+        # Sin restricción de suma (fórmula 42)
+        w_optimal = (1/lam) * np.linalg.inv(Sigma) @ posterior_returns
+    else:
+        # Con restricción de que los pesos sumen 1
+        # Usamos optimización como en el ejemplo de Markowitz
+        # Función objetivo: maximizar utility = w'*R - (λ/2)*w'Σw
+        def objective(w):
+            utility = w @ posterior_returns - (lam/2) * (w @ Sigma @ w.T)
+            return -utility  # Negativo porque minimize() minimiza
+        # Condiciones iniciales (pesos iguales)
+        x0 = np.ones(n_assets) / n_assets
+        # Restricciones
+        constraints = ({'type': 'eq', 'fun': lambda w: np.sum(w) - 1})
+        # Límites (sin ventas cortas)
+        bounds = tuple((0, 1) for _ in range(n_assets))
+        # Optimización
+        result = op.minimize(objective, x0, constraints=constraints, 
+                         bounds=bounds, method='SLSQP')
+        
+        w_optimal = result.x
+    
+    return w_optimal, posterior_returns
