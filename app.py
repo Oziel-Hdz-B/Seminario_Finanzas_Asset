@@ -649,7 +649,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
                 for i in range(n_views):
                     key = f"p_{i}_{j}"
                     value = st.selectbox(
-                        "",
+                        "-",
                         options=[-1, 0, 1],
                         index=1,  # 0 es el valor por defecto
                         key=key,
@@ -671,7 +671,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
         columns=tickers,
         index=[f"View {i+1}" for i in range(n_views)]
     )
-    st.dataframe(p_display_df, use_container_width=True)  
+    st.dataframe(p_display_df, width="stretch")  
     #########################       
     # Vector Q
     #########################
@@ -715,7 +715,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
         columns=["Confianza"],
         index=[f"View {i+1}" for i in range(n_views)]
     )
-    st.dataframe(q_display_df, use_container_width=True)
+    st.dataframe(q_display_df, width="stretch")
     #########################
     # Vector x_M 
     #########################
