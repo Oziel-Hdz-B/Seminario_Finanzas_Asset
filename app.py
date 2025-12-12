@@ -568,8 +568,8 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
         """)
         tau_ = st.number_input(
             "Ingresa el valor de Tau (τ):",
-            min_value=0.001,
-            max_value=1.0,
+            min_value=0.01,
+            max_value=0.05,
             value=0.025,
             step=0.001,
             format="%.3f"
@@ -581,9 +581,9 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
         """)
         lam_ = st.number_input(
             "Coeficiente de aversión al riesgo (λ):",
-            min_value=0.1,
-            max_value=10.0,
-            value=2.5,
+            min_value=10.0,
+            max_value=20.0,
+            value=15.0,
             step=0.1
         )
                 
@@ -608,7 +608,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
         n_views = st.number_input(
             "Número de views que deseas definir:",
             min_value=1,
-            max_value=int(factorial(len(tickers))/(factorial(len(tickers)-2)*2)), #combinaciones de n en 2
+            max_value=int(factorial(len(tickers))/(factorial(len(tickers)-2)*2)) + len(tickers), #combinaciones de n en 2
             value=2,
             step=1
         )
@@ -662,15 +662,19 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
         for j in range(n_assets):
             key = f"p_{i}_{j}"
             P[i, j] = p_values.get(key, 0)
+    ##########################        
     # Mostrar matriz P
+    #########################
     st.subheader("Matriz P Definida")
     p_display_df = pd.DataFrame(
         P,
         columns=tickers,
         index=[f"View {i+1}" for i in range(n_views)]
     )
-    st.dataframe(p_display_df, use_container_width=True)         
+    st.dataframe(p_display_df, use_container_width=True)  
+    #########################       
     # Vector Q
+    #########################
     st.subheader("Vector Q (Niveles de Confianza)")
     st.write(f"Dimensiones: {n_views} views")
     # Primero, necesitamos definir la función describe_view
@@ -704,8 +708,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
                 key=f"q_{i}"
             )
             q_data.append(q_value)
-    Q = np.array(q_data)
-            
+    Q = np.array(q_data)     
     # Mostrar vector Q
     q_display_df = pd.DataFrame(
         Q.reshape(-1, 1),
@@ -713,6 +716,74 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
         index=[f"View {i+1}" for i in range(n_views)]
     )
     st.dataframe(q_display_df, use_container_width=True)
+    #########################
+    # Vector x_M 
+    #########################
+    def create_benchmark_inputs(tickers):
+        # """
+        # Crea una interfaz para ingresar los pesos del benchmark
+        # Parámetros:
+        # -----------
+        # tickers : list
+        # Lista de nombres de los activos  
+        # Retorna:
+        # --------
+        # w_M : numpy array or None
+        #     Array de pesos del benchmark, o None si no se han ingresado correctamente
+        # """
+        st.info("Edita la columna 'Peso' directamente en la tabla")
+        
+        # Crear DataFrame inicial
+        weights_df = pd.DataFrame({
+            'Activo': tickers,
+            'Peso': [1.0/n_assets] * n_assets
+        })
+        
+        # Editor de datos
+        edited_df = st.data_editor(
+            weights_df,
+            column_config={
+                "Activo": st.column_config.TextColumn(
+                    "Activo",
+                    disabled=True
+                ),
+                "Peso": st.column_config.NumberColumn(
+                    "Peso",
+                    min_value=0.0,
+                    max_value=1.0,
+                    step=0.01,
+                    format="%.4f",
+                    required=True
+                )
+            },
+            hide_index=True,
+            num_rows="fixed"
+        )
+        
+        # Validar pesos
+        total = edited_df['Peso'].sum()
+        st.metric("Suma total de pesos", f"{total:.4f}")
+        
+        if abs(total - 1.0) > 0.0001:
+            st.warning(f"⚠️ La suma de pesos es {total:.4f}, debe ser 1.00")
+            
+            # Normalizar automáticamente
+            if st.button("🔧 Normalizar automáticamente", key="normalize_table"):
+                edited_df['Peso'] = edited_df['Peso'] / total
+                total = 1.0
+                st.rerun()
+        
+        if abs(total - 1.0) <= 0.0001:
+            w_M = edited_df['Peso'].values
+            
+            # Verificar que todos los pesos estén en [0, 1]
+            if np.all((w_M >= 0) & (w_M <= 1)):
+                st.success("✅ Pesos del benchmark validados correctamente")
+                return w_M
+            else:
+                st.error("❌ Algunos pesos están fuera del rango [0, 1]")
+                return None
+    w_Mercado = create_benchmark_inputs(tickers)
 
     try:
         portfolio_assets_returns = df_general_filt.dropna()
@@ -724,9 +795,24 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
         pesos_optimos,ret_post = black_litterman_portfolio(portfolio_assets_returns, 
                                                         tau_, 
                                                         tasa_ib_r, 
-                                                        P, Q, lam_, sum_constraint=True)
+                                                        P, Q, w_Mercado, lam_, sum_constraint=True)
+        pesos_optimos_alt,ret_post_alt = black_litterman_portfolio(portfolio_assets_returns, 
+                                                        tau_, 
+                                                        tasa_ib_r, 
+                                                        P, Q, w_Mercado, lam_, sum_constraint=False)
+        
+        #pesos_optimos_alt_2,ret_post_alt_2,_ = black_litterman_portfolio_02(portfolio_assets_returns,
+                                                                          #tau_, 
+                                                                          #tasa_ib_r, 
+                                                                          #P, Q, lam_,w_Mercado,#sum_constraint=True,
+                                                                          #method='SLSQP', 
+                                                                          #use_equilibrium=True)
         pesos_array = np.array(pesos_optimos)
+        pesos_array_alt = np.array(pesos_optimos_alt)
+        #pesos_array_alt_2 = np.array(pesos_optimos_alt_2)
         r_p = portfolio_assets_returns.dot(pesos_array)
+        r_p_alt = portfolio_assets_returns.dot(pesos_array_alt)
+        #r_p_alt_2 = portfolio_assets_returns.dot(pesos_array_alt_2)
     except Exception as e:
         st.warning(f"Error calculando portafolio: {e}. Se usan pesos homogéneos como fallback.")
         n_activos = len(tickers)
@@ -736,7 +822,12 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
         portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
         benchmark_returns = benchmark_returns.loc[common_index]
         r_p = portfolio_assets_returns.dot(pesos_array)
+    st.write('Pesos del portafolio con restricciones')
     st.write(pd.DataFrame({'Tickers':pd.array(tickers),'Pesos del portafolio':pd.array(pesos_array)}))
+    st.write('Pesos del portafolio sin restricciones')
+    st.write(pd.DataFrame({'Tickers':pd.array(tickers),'Pesos del portafolio':pd.array(pesos_array_alt)}))
+    #st.write('Alternativa 2')
+    #st.write(pd.DataFrame({'Tickers':pd.array(tickers),'Pesos del portafolio':pd.array(pesos_array_alt_2)}))
     try:
             # Básicas
             ret_anual = retorno_anual_portafolio(r_p.values)

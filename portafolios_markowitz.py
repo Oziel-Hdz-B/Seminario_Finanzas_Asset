@@ -163,7 +163,7 @@ def min_varianza_dado_retorno(retornos, target_return):
     #     3.- Volatilidad Anual del Portafolio
     return pesos_optimos, retorno, volatilidad
 
-def black_litterman_portfolio(returns, tau, rf_rate, P, Q, lam, sum_constraint=True):
+def black_litterman_portfolio(returns, tau, rf_rate, P, Q, w_m, lam, sum_constraint=True):
     """
     Calcula la asignación óptima de activos usando el modelo Black-Litterman.
     
@@ -199,16 +199,18 @@ def black_litterman_portfolio(returns, tau, rf_rate, P, Q, lam, sum_constraint=T
     n_assets = returns.shape[0]
     # 1. Calcular retornos medios históricos (Π) y matriz de covarianza (Σ)
     # Π = retornos excedentes históricos (sobre tasa libre de riesgo)
-    historical_mean = np.mean(returns, axis=1)
-    Pi = historical_mean - rf_rate  # Retornos excedentes
+    # historical_mean = np.mean(returns, axis=1)
     # Calcular matriz de covarianza Σ
     Sigma = np.cov(returns)
+    # Calcular Π = λΣw_M
+    Pi = lam * (Sigma @ w_m)
     # 2. Calcular Ω (matriz de covarianza de las views)
     # Ω = P * (τΣ) * P^T
     Omega = P @ (tau * Sigma) @ P.T
     # Asegurar que Ω sea invertible (añadir pequeña diagonal si es necesario)
     if np.linalg.matrix_rank(Omega) < Omega.shape[0]:
         Omega += np.eye(Omega.shape[0]) * 1e-6
+    Omega = np.diag(np.diag(Omega))
     # 3. Calcular el inverso de (τΣ)
     tau_Sigma_inv = np.linalg.inv(tau * Sigma)
     # 4. Calcular retornos posteriores esperados (fórmula de Black-Litterman)
@@ -240,8 +242,141 @@ def black_litterman_portfolio(returns, tau, rf_rate, P, Q, lam, sum_constraint=T
         bounds = tuple((0, 1) for _ in range(n_assets))
         # Optimización
         result = op.minimize(objective, x0, constraints=constraints, 
-                         bounds=bounds, method='SLSQP')
+                         bounds=bounds, method='trust-constr',tol=1e-20)
         
         w_optimal = result.x
     
     return w_optimal, posterior_returns
+
+"""
+def black_litterman_portfolio_02(returns, tau, rf_rate, P, Q, lam, w_M=None, 
+                                sum_constraint=True, 
+                                method='SLSQP', use_equilibrium=True):
+    
+    Black-Litterman con opción de usar retornos de equilibrio Π = λΣw_M
+    
+    Parámetros:
+    -----------
+    returns : array (n_assets, n_days) o (n_days, n_assets)
+        Rendimientos históricos
+    tau : float
+        Parámetro de incertidumbre
+    rf_rate : float
+        Tasa libre de riesgo
+    P : array (n_views, n_assets)
+        Matriz de views
+    Q : array (n_views,)
+        Retornos esperados de las views
+    lam : float
+        Coeficiente de aversión al riesgo
+    w_M : array (n_assets,), opcional
+        Pesos del benchmark (market portfolio). Si es None, se calculan automáticamente.
+    view_confidences : array (n_views,) o float, opcional
+        Confianzas en las views (0-1)
+    sum_constraint : bool
+        Si True, los pesos suman 1
+    method : str
+        Método de optimización
+    use_equilibrium : bool
+        Si True, usa Π = λΣw_M; si False, usa retornos históricos
+    
+    Retorna:
+    --------
+    w_optimal : array
+        Pesos óptimos
+    posterior_returns : array
+        Retornos posteriores
+    Pi : array
+        Retornos de equilibrio/históricos usados
+    
+    # Procesar returns
+    returns = np.array(returns)
+    if returns.shape[0] > returns.shape[1]:
+        returns = returns.T
+    
+    n_assets = returns.shape[0]
+    
+    # Calcular matriz de covarianza
+    Sigma = np.cov(returns)
+    
+    # 1. Calcular Π (retornos de equilibrio o históricos)
+    if use_equilibrium:
+        # Método 1: Π = λΣw_M (equilibrio CAPM)
+        if w_M is None:
+            # Si no hay w_M, usar pesos del mercado (proporcionales a capitalización)
+            # Alternativa: usar pesos iguales
+            w_M = np.ones(n_assets) / n_assets
+        
+        # Asegurar que w_M sea array numpy
+        w_M = np.array(w_M)
+        
+        # Verificar que w_M tenga dimensión correcta
+        if len(w_M) != n_assets:
+            raise ValueError(f"w_M debe tener {n_assets} elementos, tiene {len(w_M)}")
+        
+        # Verificar que los pesos sumen aproximadamente 1
+        if abs(np.sum(w_M) - 1.0) > 0.01:
+            st.warning(f"Los pesos de w_M no suman 1 (suma={np.sum(w_M):.4f}). Normalizando...")
+            w_M = w_M / np.sum(w_M)
+        
+        # Calcular Π = λΣw_M
+        Pi = lam * (Sigma @ w_M)
+        
+        # Explicación para debugging
+        print(f"Usando Π de equilibrio:")
+        print(f"  λ = {lam}")
+        print(f"  w_M = {w_M}")
+        print(f"  Π = λΣw_M = {Pi}")
+        
+    else:
+        # Método 2: Π = retornos históricos promedio (exceso)
+        historical_mean = np.mean(returns, axis=1)
+        Pi = historical_mean - rf_rate
+        print(f"Usando Π histórico: {Pi}")
+    
+    # 2. Calcular Ω (matriz de covarianza de las views)
+    
+    # Ω = P * (τΣ) * P^T
+    Omega = P @ (tau * Sigma) @ P.T
+    # Asegurar que Ω sea invertible (añadir pequeña diagonal si es necesario)
+    if np.linalg.matrix_rank(Omega) < Omega.shape[0]:
+        Omega += np.eye(Omega.shape[0]) * 1e-6
+    Omega = np.diag(np.diag(Omega))
+    
+    # 3. Calcular retornos posteriores (fórmula Black-Litterman)
+    tau_Sigma_inv = np.linalg.inv(tau * Sigma)
+    P_T = P.T
+    Omega_inv = np.linalg.inv(Omega)
+    
+    first_part = tau_Sigma_inv + P_T @ Omega_inv @ P
+    second_part = tau_Sigma_inv @ Pi + P_T @ Omega_inv @ Q
+    
+    posterior_returns = np.linalg.inv(first_part) @ second_part
+    
+    # 4. Calcular asignación óptima
+    if not sum_constraint:
+        w_optimal = (1/lam) * np.linalg.inv(Sigma) @ posterior_returns
+    else:
+        def objective(w):
+            utility = w @ posterior_returns - (lam/2) * (w @ Sigma @ w.T)
+            return -utility
+        
+        x0 = np.ones(n_assets) / n_assets
+        constraints = ({'type': 'eq', 'fun': lambda w: np.sum(w) - 1})
+        bounds = tuple((0, 1) for _ in range(n_assets))
+        
+        result = op.minimize(
+            objective, x0, constraints=constraints, 
+            bounds=bounds, method=method,
+            options={'ftol': 1e-10, 'maxiter': 1000, 'disp': False}
+        )
+        
+        w_optimal = result.x
+        
+        if not result.success:
+            print(f"Optimización no convergió: {result.message}")
+            w_optimal = np.ones(n_assets) / n_assets
+    
+    return w_optimal, posterior_returns, Pi
+
+"""
