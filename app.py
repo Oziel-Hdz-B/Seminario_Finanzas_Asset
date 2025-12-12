@@ -665,7 +665,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
     ##########################        
     # Mostrar matriz P
     #########################
-    st.subheader("Matriz P Definida")
+    st.subheader("Matriz P Definida",divider='red')
     p_display_df = pd.DataFrame(
         P,
         columns=tickers,
@@ -675,7 +675,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
     #########################       
     # Vector Q
     #########################
-    st.subheader("Vector Q (Niveles de Confianza)")
+    st.subheader("Vector Q (Niveles de Confianza)",divider='red')
     st.write(f"Dimensiones: {n_views} views")
     # Primero, necesitamos definir la función describe_view
     def describe_view(view_row, asset_names):
@@ -719,6 +719,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
     #########################
     # Vector x_M 
     #########################
+    st.subheader("Matriz w_M, pesos del benchmark para calcular π",divider='red')
     def create_benchmark_inputs(tickers):
         # """
         # Crea una interfaz para ingresar los pesos del benchmark
@@ -822,6 +823,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
         portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
         benchmark_returns = benchmark_returns.loc[common_index]
         r_p = portfolio_assets_returns.dot(pesos_array)
+    st.header('Pesos obtenidos para el modelo B-L',divider='red')
     st.write('Pesos del portafolio con restricciones')
     st.write(pd.DataFrame({'Tickers':pd.array(tickers),'Pesos del portafolio':pd.array(pesos_array)}))
     st.write('Pesos del portafolio sin restricciones')

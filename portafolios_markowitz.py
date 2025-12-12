@@ -242,7 +242,7 @@ def black_litterman_portfolio(returns, tau, rf_rate, P, Q, w_m, lam, sum_constra
         bounds = tuple((0, 1) for _ in range(n_assets))
         # Optimización
         result = op.minimize(objective, x0, constraints=constraints, 
-                         bounds=bounds, method='trust-constr',tol=1e-20)
+                         bounds=bounds, method='trust-constr',tol=1e-25)
         
         w_optimal = result.x
     
