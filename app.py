@@ -730,10 +730,8 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
                 'Activo': tickers,
                 'Peso': [1.0 / n_assets] * n_assets
             })
-
         # 🔑 SOURCE OF TRUTH
         weights_df = st.session_state["weights_df"]
-
         # Editor de datos (CLAVE: key)
         edited_df = st.data_editor(
             weights_df,
@@ -755,14 +753,11 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
             hide_index=True,
             num_rows="fixed"
         )
-
         # Guardar siempre lo editado
         st.session_state["weights_df"] = edited_df
-        
         # Validar pesos
         total = edited_df['Peso'].sum()
         st.metric("Suma total de pesos", f"{total:.4f}")
-
         if abs(total - 1.0) > 0.0001:
             st.warning(
                 f"La suma de pesos es {total:.4f}, debe ser 1.00.\n\n"
@@ -770,24 +765,18 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
                 "**Normalizar automáticamente**.",
                 icon="⚠️"
             )
-
             # Normalizar automáticamente (RESET A 1/n)
             if st.button("🔧 Normalizar automáticamente", key="normalize_table"):
                 st.session_state["weights_df"] = pd.DataFrame({
                     'Activo': tickers,
                     'Peso': [1.0 / n_assets] * n_assets
                 })
-                
                 if "weights_editor" in st.session_state:
                     del st.session_state["weights_editor"]
-
                 st.rerun()
-
             return None  # No seguir si no suma 1
-
         # Caso válido
         w_M = edited_df['Peso'].values
-
         if np.all((w_M >= 0) & (w_M <= 1)):
             st.success("✅ Pesos del benchmark validados correctamente")
             return w_M
@@ -795,13 +784,11 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
             st.error("❌ Algunos pesos están fuera del rango [0, 1]")
             return None
     w_Mercado = create_benchmark_inputs(tickers)
-
     try:
         portfolio_assets_returns = df_general_filt.dropna()
         common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
         portfolio_assets_returns = portfolio_assets_returns.loc[common_index]
         benchmark_returns = benchmark_returns.loc[common_index]
-
         # Llamada a la función que minimiza varianza para un retorno objetivo
         pesos_optimos,ret_post = black_litterman_portfolio(portfolio_assets_returns, 
                                                         tau_, 
@@ -811,19 +798,10 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
                                                         tau_, 
                                                         tasa_ib_r, 
                                                         P, Q, w_Mercado, lam_, sum_constraint=False)
-        
-        #pesos_optimos_alt_2,ret_post_alt_2,_ = black_litterman_portfolio_02(portfolio_assets_returns,
-                                                                          #tau_, 
-                                                                          #tasa_ib_r, 
-                                                                          #P, Q, lam_,w_Mercado,#sum_constraint=True,
-                                                                          #method='SLSQP', 
-                                                                          #use_equilibrium=True)
         pesos_array = np.array(pesos_optimos)
         pesos_array_alt = np.array(pesos_optimos_alt)
-        #pesos_array_alt_2 = np.array(pesos_optimos_alt_2)
         r_p = portfolio_assets_returns.dot(pesos_array)
         r_p_alt = portfolio_assets_returns.dot(pesos_array_alt)
-        #r_p_alt_2 = portfolio_assets_returns.dot(pesos_array_alt_2)
     except Exception as e:
         st.warning(f"Error calculando portafolio: {e}. Se usan pesos homogéneos como fallback.")
         n_activos = len(tickers)
@@ -850,12 +828,6 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
             "la **suma de los pesos del benchmark (w_M)** sea exactamente **1.00**.",
             icon="ℹ️"
         )
-    #st.write('Pesos del portafolio sin restricciones')
-    #st.write(pd.DataFrame({'Tickers':pd.array(tickers),'Pesos del portafolio':pd.array(pesos_array_alt)}))
-    #st.write('Alternativa 2')
-    #st.write(pd.DataFrame({'Tickers':pd.array(tickers),'Pesos del portafolio':pd.array(pesos_array_alt_2)}))
-    #st.write('Alternativa 2')
-    #st.write(pd.DataFrame({'Tickers':pd.array(tickers),'Pesos del portafolio':pd.array(pesos_array_alt_2)}))
     try:
             # Básicas
             ret_anual = retorno_anual_portafolio(r_p.values)
