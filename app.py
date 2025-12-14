@@ -467,7 +467,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Rendimiento Fijo':
     rend_objetivo = st.number_input(
         "Rendimiento objeetivo",
         min_value = 0.03,
-        max_value = 0.5,
+        max_value = 0.51,
         value=0.2,
         step=0.01
     )
@@ -593,7 +593,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
     - **1:** Activo con retorno positivo
     - **-1:** Activo con retorno negativo  
     - **0:** Activo no considerado en la view
-    **Vector Q:** Nivel de confianza en cada view (0 a 1)
+    - **Vector Q:** Nivel de confianza en cada view (0 a 1)
     """) 
     # Número de views
     if len(tickers)<3:
@@ -784,6 +784,8 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
             st.error("❌ Algunos pesos están fuera del rango [0, 1]")
             return None
     w_Mercado = create_benchmark_inputs(tickers)
+    if w_Mercado == None:
+        st.stop
     try:
         portfolio_assets_returns = df_general_filt.dropna()
         common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
