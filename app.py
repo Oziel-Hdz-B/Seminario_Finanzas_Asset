@@ -785,7 +785,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
             return None
     w_Mercado = create_benchmark_inputs(tickers)
     if w_Mercado is None:
-        st.stop
+        st.stop()
     try:
         portfolio_assets_returns = df_general_filt.dropna()
         common_index = portfolio_assets_returns.index.intersection(benchmark_returns.index)
