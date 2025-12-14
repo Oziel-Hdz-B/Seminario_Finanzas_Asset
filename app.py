@@ -784,7 +784,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
             st.error("❌ Algunos pesos están fuera del rango [0, 1]")
             return None
     w_Mercado = create_benchmark_inputs(tickers)
-    if w_Mercado == None:
+    if w_Mercado is None:
         st.stop
     try:
         portfolio_assets_returns = df_general_filt.dropna()
