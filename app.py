@@ -671,7 +671,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
         columns=tickers,
         index=[f"View {i+1}" for i in range(n_views)]
     )
-    st.dataframe(p_display_df, width=None)  
+    st.dataframe(p_display_df, width='stretch')  
     #########################       
     # Vector Q
     #########################
@@ -715,7 +715,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
         columns=["Confianza"],
         index=[f"View {i+1}" for i in range(n_views)]
     )
-    st.dataframe(q_display_df, width=None)
+    st.dataframe(q_display_df, width='stretch')
     #########################
     # Vector x_M 
     #########################
