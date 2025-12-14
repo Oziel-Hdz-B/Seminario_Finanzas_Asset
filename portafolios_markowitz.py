@@ -61,7 +61,8 @@ def portafolio_minima_varianza(retornos):
         x0,
         method='SLSQP',
         bounds=bounds,
-        constraints=constraints
+        constraints=constraints,
+        tol=1e-25
     )
     # Pesos óptimos
     pesos_optimos = result.x
@@ -87,7 +88,8 @@ def portafolio_maximo_retorno(retornos):
         x0,
         method='SLSQP',
         bounds=bounds,
-        constraints=constraints
+        constraints=constraints,
+        tol=1e-25
     )
     # Pesos óptimos
     pesos_optimos = result.x
@@ -115,7 +117,8 @@ def portafolio_maximo_sharpe(retornos, rf):
         x0,
         method='SLSQP',
         bounds=bounds,
-        constraints=constraints
+        constraints=constraints,
+        tol=1e-25
     )
     # Pesos óptimos
     pesos_optimos = result.x
@@ -150,7 +153,8 @@ def min_varianza_dado_retorno(retornos, target_return):
         x0,
         method='SLSQP',
         bounds=bounds,
-        constraints=constraints
+        constraints=constraints,
+        tol=1e-25
     )
     # Pesos óptimos
     pesos_optimos = result.x

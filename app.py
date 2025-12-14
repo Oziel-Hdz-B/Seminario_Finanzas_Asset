@@ -671,7 +671,7 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
         columns=tickers,
         index=[f"View {i+1}" for i in range(n_views)]
     )
-    st.dataframe(p_display_df, width="stretch")  
+    st.dataframe(p_display_df, width=None)  
     #########################       
     # Vector Q
     #########################
@@ -715,34 +715,29 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
         columns=["Confianza"],
         index=[f"View {i+1}" for i in range(n_views)]
     )
-    st.dataframe(q_display_df, width="stretch")
+    st.dataframe(q_display_df, width=None)
     #########################
     # Vector x_M 
     #########################
     st.subheader("Matriz w_M, pesos del benchmark para calcular π",divider='red')
     def create_benchmark_inputs(tickers):
-        # """
-        # Crea una interfaz para ingresar los pesos del benchmark
-        # Parámetros:
-        # -----------
-        # tickers : list
-        # Lista de nombres de los activos  
-        # Retorna:
-        # --------
-        # w_M : numpy array or None
-        #     Array de pesos del benchmark, o None si no se han ingresado correctamente
-        # """
         st.info("Edita la columna 'Peso' directamente en la tabla")
-        
+        if 'weights_df' in st.session_state:
+            del st.session_state['weights_df']
         # Crear DataFrame inicial
-        weights_df = pd.DataFrame({
-            'Activo': tickers,
-            'Peso': [1.0/n_assets] * n_assets
-        })
-        
-        # Editor de datos
+        if "weights_df" not in st.session_state:
+            st.session_state["weights_df"] = pd.DataFrame({
+                'Activo': tickers,
+                'Peso': [1.0 / n_assets] * n_assets
+            })
+
+        # 🔑 SOURCE OF TRUTH
+        weights_df = st.session_state["weights_df"]
+
+        # Editor de datos (CLAVE: key)
         edited_df = st.data_editor(
             weights_df,
+            key="weights_editor",
             column_config={
                 "Activo": st.column_config.TextColumn(
                     "Activo",
@@ -760,30 +755,45 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
             hide_index=True,
             num_rows="fixed"
         )
+
+        # Guardar siempre lo editado
+        st.session_state["weights_df"] = edited_df
         
         # Validar pesos
         total = edited_df['Peso'].sum()
         st.metric("Suma total de pesos", f"{total:.4f}")
-        
+
         if abs(total - 1.0) > 0.0001:
-            st.warning(f"⚠️ La suma de pesos es {total:.4f}, debe ser 1.00")
-            
-            # Normalizar automáticamente
+            st.warning(
+                f"La suma de pesos es {total:.4f}, debe ser 1.00.\n\n"
+                "👉 Ajusta los pesos del benchmark manualmente o utiliza el botón "
+                "**Normalizar automáticamente**.",
+                icon="⚠️"
+            )
+
+            # Normalizar automáticamente (RESET A 1/n)
             if st.button("🔧 Normalizar automáticamente", key="normalize_table"):
-                edited_df['Peso'] = edited_df['Peso'] / total
-                total = 1.0
+                st.session_state["weights_df"] = pd.DataFrame({
+                    'Activo': tickers,
+                    'Peso': [1.0 / n_assets] * n_assets
+                })
+                
+                if "weights_editor" in st.session_state:
+                    del st.session_state["weights_editor"]
+
                 st.rerun()
-        
-        if abs(total - 1.0) <= 0.0001:
-            w_M = edited_df['Peso'].values
-            
-            # Verificar que todos los pesos estén en [0, 1]
-            if np.all((w_M >= 0) & (w_M <= 1)):
-                st.success("✅ Pesos del benchmark validados correctamente")
-                return w_M
-            else:
-                st.error("❌ Algunos pesos están fuera del rango [0, 1]")
-                return None
+
+            return None  # No seguir si no suma 1
+
+        # Caso válido
+        w_M = edited_df['Peso'].values
+
+        if np.all((w_M >= 0) & (w_M <= 1)):
+            st.success("✅ Pesos del benchmark validados correctamente")
+            return w_M
+        else:
+            st.error("❌ Algunos pesos están fuera del rango [0, 1]")
+            return None
     w_Mercado = create_benchmark_inputs(tickers)
 
     try:
@@ -827,7 +837,23 @@ elif str(portafolio_tipo) == 'Portafolio optimizado - Black Litterman':
     st.write('Pesos del portafolio con restricciones')
     st.write(pd.DataFrame({'Tickers':pd.array(tickers),'Pesos del portafolio':pd.array(pesos_array)}))
     st.write('Pesos del portafolio sin restricciones')
-    st.write(pd.DataFrame({'Tickers':pd.array(tickers),'Pesos del portafolio':pd.array(pesos_array_alt)}))
+    try:
+        st.write(
+            pd.DataFrame({
+                'Tickers': pd.array(tickers),
+                'Pesos del portafolio': pd.array(pesos_array_alt)
+            })
+        )
+    except Exception:
+        st.info(
+            "Para calcular los pesos **sin restricciones**, verifica que "
+            "la **suma de los pesos del benchmark (w_M)** sea exactamente **1.00**.",
+            icon="ℹ️"
+        )
+    #st.write('Pesos del portafolio sin restricciones')
+    #st.write(pd.DataFrame({'Tickers':pd.array(tickers),'Pesos del portafolio':pd.array(pesos_array_alt)}))
+    #st.write('Alternativa 2')
+    #st.write(pd.DataFrame({'Tickers':pd.array(tickers),'Pesos del portafolio':pd.array(pesos_array_alt_2)}))
     #st.write('Alternativa 2')
     #st.write(pd.DataFrame({'Tickers':pd.array(tickers),'Pesos del portafolio':pd.array(pesos_array_alt_2)}))
     try:
